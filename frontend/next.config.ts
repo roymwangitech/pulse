@@ -1,11 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: 'api.dicebear.com' },
-    ],
-  },
+  // All avatars are served locally from /public/avatars/ — no remote image domains needed
 };
 
 export default nextConfig;

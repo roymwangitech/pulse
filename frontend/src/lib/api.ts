@@ -37,6 +37,10 @@ class ApiClient {
         useAuthStore.getState().setRefreshToken(refreshToken);
         return this.fetch<T>(endpoint, { ...options, token: accessToken, _retried: true });
       }
+      // Refresh failed — session is truly expired, log out silently
+      useAuthStore.getState().logout();
+      if (typeof window !== 'undefined') window.location.href = '/login';
+      throw new Error('Session expired');
     }
 
     if (!res.ok) {
