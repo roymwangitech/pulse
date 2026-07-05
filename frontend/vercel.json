@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://pulse-kqyb.onrender.com/api/:path*"
+    },
+    {
+      "source": "/socket.io/:path*",
+      "destination": "https://pulse-kqyb.onrender.com/socket.io/:path*"
     }
   ]
 }

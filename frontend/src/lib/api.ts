@@ -2,24 +2,10 @@ import { useAuthStore } from '@/stores/auth';
 
 /**
  * In development, returns the local backend URL (NEXT_PUBLIC_API_URL).
- * In production on Vercel, returns empty string so requests go to /api/* 
+ * In production on Vercel, returns empty string so requests go to /api/*
  * which is proxied to Render via vercel.json rewrites.
  */
 export function getPublicOrigin(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
-  }
-  return '';
-}
-
-/**
- * Socket.IO server URL.
- * In dev: same as API URL. In production: direct Render URL (socket.io needs a real origin).
- */
-export function getSocketUrl(): string {
-  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
-    return process.env.NEXT_PUBLIC_SOCKET_URL.replace(/\/$/, '');
-  }
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
   }
