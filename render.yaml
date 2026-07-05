@@ -3,7 +3,7 @@ services:
     name: pulsechat-api
     runtime: node
     rootDir: backend
-    buildCommand: npm install && npm run db:generate && npm run build
+    buildCommand: npm install --include=dev && npm run db:generate && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
