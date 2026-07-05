@@ -2,27 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Home,
-  Compass,
-  MessageSquare,
-  User,
-  Settings,
-  Sun,
-  Moon,
-  Zap,
-  Shield,
-} from 'lucide-react';
+import { Home, Compass, MessageSquare, Mail, User, Settings, Sun, Moon, Zap, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { useUnreadDmCount } from '@/hooks/use-unread-dm-count';
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/explore', label: 'Explore', icon: Compass },
   { href: '/threads', label: 'Threads', icon: MessageSquare },
+  { href: '/messages', label: 'Messages', icon: Mail },
   { href: '/profile', label: 'Profile', icon: User },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -31,13 +23,11 @@ export function LeftSidebar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useThemeStore();
   const user = useAuthStore((s) => s.user);
+  const unread = useUnreadDmCount();
 
   return (
     <aside className="sticky top-0 hidden h-screen w-full shrink-0 flex-col px-2 py-2 md:flex md:w-[88px] lg:w-[275px] lg:px-3">
-      <Link
-        href="/"
-        className="mb-4 flex items-center justify-center gap-2 px-3 py-3 lg:justify-start"
-      >
+      <Link href="/" className="mb-4 flex items-center justify-center gap-2 px-3 py-3 lg:justify-start">
         <Zap className="h-7 w-7 text-twitter-blue lg:h-8 lg:w-8" fill="currentColor" />
         <span className="hidden text-xl font-bold lg:inline">PulseChat</span>
       </Link>
@@ -45,17 +35,25 @@ export function LeftSidebar() {
       <nav className="flex flex-1 flex-col gap-1">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+          const isMessages = href === '/messages';
           return (
             <Link
               key={href}
               href={href}
               title={label}
               className={cn(
-                'flex items-center justify-center gap-4 rounded-full px-3 py-3 text-lg transition-colors hover:bg-border/50 lg:justify-start lg:px-4',
+                'relative flex items-center justify-center gap-4 rounded-full px-3 py-3 text-lg transition-colors hover:bg-border/50 lg:justify-start lg:px-4',
                 active && 'font-bold'
               )}
             >
-              <Icon className={cn('h-6 w-6 shrink-0', active && 'text-twitter-blue')} />
+              <div className="relative">
+                <Icon className={cn('h-6 w-6 shrink-0', active && 'text-twitter-blue')} />
+                {isMessages && unread > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-twitter-blue text-[9px] font-bold text-white">
+                    {unread > 9 ? '9+' : unread}
+                  </span>
+                )}
+              </div>
               <span className="hidden lg:inline">{label}</span>
             </Link>
           );

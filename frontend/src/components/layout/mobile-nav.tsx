@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Compass, MessageSquare, User, MoreHorizontal, Settings, Shield, Sun, Moon, LogOut, LogIn } from 'lucide-react';
+import { Home, Compass, MessageSquare, Mail, User, MoreHorizontal, Settings, Shield, Sun, Moon, LogOut, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
@@ -13,9 +13,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 const mainNav = [
   { href: '/', label: 'Home', icon: Home, match: (p: string) => p === '/' },
   { href: '/explore', label: 'Explore', icon: Compass, match: (p: string) => p.startsWith('/explore') },
+  { href: '/messages', label: 'Messages', icon: Mail, match: (p: string) => p.startsWith('/messages') },
   { href: '/threads', label: 'Threads', icon: MessageSquare, match: (p: string) => p.startsWith('/threads') },
   { href: '/profile', label: 'Profile', icon: User, match: (p: string) => p.startsWith('/profile') },
 ];
+
+import { useUnreadDmCount } from '@/hooks/use-unread-dm-count';
 
 export function MobileNav() {
   const pathname = usePathname();
@@ -26,6 +29,7 @@ export function MobileNav() {
   const logout = useAuthStore((s) => s.logout);
   const { theme, toggleTheme } = useThemeStore();
   const [showMore, setShowMore] = useState(false);
+  const unread = useUnreadDmCount();
 
   const handleLogout = async () => {
     try {
@@ -47,6 +51,7 @@ export function MobileNav() {
         <div className="mx-auto flex h-14 max-w-lg items-stretch justify-around">
           {mainNav.map(({ href, label, icon: Icon, match }) => {
             const active = match(pathname);
+            const isMessages = href === '/messages';
             return (
               <Link
                 key={href}
@@ -56,7 +61,14 @@ export function MobileNav() {
                   active ? 'text-twitter-blue' : 'text-muted-foreground'
                 )}
               >
-                <Icon className={cn('h-6 w-6', active && 'stroke-[2.5]')} />
+                <div className="relative">
+                  <Icon className={cn('h-6 w-6', active && 'stroke-[2.5]')} />
+                  {isMessages && unread > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-twitter-blue text-[9px] font-bold text-white">
+                      {unread > 9 ? '9+' : unread}
+                    </span>
+                  )}
+                </div>
                 <span>{label}</span>
               </Link>
             );

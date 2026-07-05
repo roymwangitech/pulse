@@ -45,3 +45,27 @@ export interface TrendingHashtag {
 }
 
 export type DateFilter = 'all' | 'today' | '7days' | '30days' | 'year' | 'custom';
+
+export interface DMUser {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string;
+}
+
+export interface DMConversation {
+  id: string;
+  other: DMUser;
+  lastMessage: { content: string; createdAt: string; fromMe: boolean } | null;
+  unread: number;
+  updatedAt: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  content: string;
+  senderId: string;
+  fromMe: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
