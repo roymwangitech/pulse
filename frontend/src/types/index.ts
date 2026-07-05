@@ -25,6 +25,7 @@ export interface Post {
   reactions: Reaction[];
   replyCount: number;
 }
+
 export interface ThreadReply {
   id: string;
   postId: string;
@@ -43,9 +44,3 @@ export interface TrendingHashtag {
 }
 
 export type DateFilter = 'all' | 'today' | '7days' | '30days' | 'year' | 'custom';
-
-export interface OnlineUsers {
-  count: number;
-  users: { userId: string; username: string }[];
-}
-}
