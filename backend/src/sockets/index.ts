@@ -3,14 +3,6 @@ import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../lib/auth.js';
 import { config } from '../config/index.js';
 
-interface OnlineUser {
-  userId: string;
-  username: string;
-  avatarUrl?: string;
-}
-
-const onlineUsers = new Map<string, OnlineUser>();
-
 export function setupSocketIO(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
     cors: {
@@ -39,17 +31,6 @@ export function setupSocketIO(httpServer: HttpServer): Server {
   io.on('connection', (socket: Socket) => {
     const user = socket.data.user;
 
-    if (user) {
-      onlineUsers.set(user.userId, {
-        userId: user.userId,
-        username: user.username,
-      });
-      io.emit('users:online', {
-        count: onlineUsers.size,
-        users: Array.from(onlineUsers.values()).slice(0, 20),
-      });
-    }
-
     socket.on('thread:join', (postId: string) => {
       socket.join(`thread:${postId}`);
     });
@@ -74,21 +55,7 @@ export function setupSocketIO(httpServer: HttpServer): Server {
         userId: user.userId,
       });
     });
-
-    socket.on('disconnect', () => {
-      if (user) {
-        onlineUsers.delete(user.userId);
-        io.emit('users:online', {
-          count: onlineUsers.size,
-          users: Array.from(onlineUsers.values()).slice(0, 20),
-        });
-      }
-    });
   });
 
   return io;
-}
-
-export function getOnlineUsers(): OnlineUser[] {
-  return Array.from(onlineUsers.values());
 }

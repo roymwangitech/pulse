@@ -48,3 +48,4 @@ export interface OnlineUsers {
   count: number;
   users: { userId: string; username: string }[];
 }
+}
