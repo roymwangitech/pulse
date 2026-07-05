@@ -1,27 +1,18 @@
 import { Router, Response } from 'express';
-import multer from 'multer';
 import { paramId } from '../lib/params.js';
 import { prisma } from '../lib/prisma.js';
-import { storage } from '../lib/storage.js';
 import { calculateReplyDepth } from '../lib/utils.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
 import { createReplySchema, threadQuerySchema } from '../validators/schemas.js';
-import { config } from '../config/index.js';
 
 const router = Router();
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: config.upload.maxFileSize },
-});
 
 function formatReply(reply: {
   id: string;
   postId: string;
   parentReplyId: string | null;
-  content: string | null;
-  imageUrl: string | null;
-  stickerUrl: string | null;
+  content: string;
   depth: number;
   createdAt: Date;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string };
@@ -38,8 +29,6 @@ function formatReply(reply: {
     postId: reply.postId,
     parentReplyId: reply.parentReplyId,
     content: reply.content,
-    imageUrl: reply.imageUrl,
-    stickerUrl: reply.stickerUrl,
     depth: reply.depth,
     createdAt: reply.createdAt,
     user: reply.user,
@@ -85,76 +74,58 @@ router.get('/:postId', validateQuery(threadQuerySchema), async (req, res) => {
   });
 });
 
-router.post(
-  '/:postId',
-  authenticate,
-  validateBody(createReplySchema),
-  upload.single('media'),
-  async (req: AuthRequest, res: Response) => {
-    const postId = paramId(req.params.postId);
-    const { content, parentReplyId, stickerUrl } = req.body as {
-      content?: string;
-      parentReplyId?: string;
-      stickerUrl?: string;
-    };
-    const file = req.file;
-    const trimmedContent = content?.trim();
+router.post('/:postId', authenticate, validateBody(createReplySchema), async (req: AuthRequest, res: Response) => {
+  const postId = paramId(req.params.postId);
+  const { content, parentReplyId } = req.body as { content: string; parentReplyId?: string };
+  const trimmedContent = content.trim();
 
-    if (!trimmedContent && !file && !stickerUrl) {
-      res.status(400).json({ error: 'Reply must include content, image, or sticker' });
-      return;
-    }
-
-    const post = await prisma.post.findUnique({ where: { id: postId } });
-    if (!post) {
-      res.status(404).json({ error: 'Post not found' });
-      return;
-    }
-
-    let depth = 0;
-    if (parentReplyId) {
-      const parent = await prisma.threadReply.findUnique({ where: { id: parentReplyId } });
-      if (!parent || parent.postId !== postId) {
-        res.status(400).json({ error: 'Invalid parent reply' });
-        return;
-      }
-      try {
-        depth = calculateReplyDepth(parent.depth);
-      } catch (e) {
-        res.status(400).json({ error: (e as Error).message });
-        return;
-      }
-    }
-
-    let imageUrl: string | undefined;
-    if (file) {
-      imageUrl = await storage.upload(file, 'replies');
-    }
-
-    const reply = await prisma.threadReply.create({
-      data: {
-        postId,
-        parentReplyId: parentReplyId || undefined,
-        userId: req.user!.userId,
-        content: trimmedContent,
-        imageUrl,
-        stickerUrl: stickerUrl || undefined,
-        depth,
-      },
-      include: {
-        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-        reactions: true,
-        _count: { select: { childReplies: true } },
-      },
-    });
-
-    const formatted = formatReply(reply);
-    const io = req.app.get('io');
-    io?.to(`thread:${postId}`).emit('reply:new', formatted);
-    io?.emit('thread:updated', { postId, replyCount: await prisma.threadReply.count({ where: { postId } }) });
-
-    res.status(201).json({ reply: formatted });
+  if (!trimmedContent) {
+    res.status(400).json({ error: 'Reply must include a message' });
+    return;
   }
-);
+
+  const post = await prisma.post.findUnique({ where: { id: postId } });
+  if (!post) {
+    res.status(404).json({ error: 'Post not found' });
+    return;
+  }
+
+  let depth = 0;
+  if (parentReplyId) {
+    const parent = await prisma.threadReply.findUnique({ where: { id: parentReplyId } });
+    if (!parent || parent.postId !== postId) {
+      res.status(400).json({ error: 'Invalid parent reply' });
+      return;
+    }
+    try {
+      depth = calculateReplyDepth(parent.depth);
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+      return;
+    }
+  }
+
+  const reply = await prisma.threadReply.create({
+    data: {
+      postId,
+      parentReplyId: parentReplyId || undefined,
+      userId: req.user!.userId,
+      content: trimmedContent,
+      depth,
+    },
+    include: {
+      user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      reactions: true,
+      _count: { select: { childReplies: true } },
+    },
+  });
+
+  const formatted = formatReply(reply);
+  const io = req.app.get('io');
+  io?.to(`thread:${postId}`).emit('reply:new', formatted);
+  io?.emit('thread:updated', { postId, replyCount: await prisma.threadReply.count({ where: { postId } }) });
+
+  res.status(201).json({ reply: formatted });
+});
 
 export default router;

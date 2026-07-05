@@ -20,14 +20,6 @@ export const config = {
   cors: {
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
   },
-  upload: {
-    dir: process.env.UPLOAD_DIR ?? 'uploads',
-    maxFileSize: parseInt(process.env.MAX_FILE_SIZE ?? String(10 * 1024 * 1024), 10),
-    baseUrl: process.env.UPLOAD_BASE_URL ?? 'http://localhost:4000/uploads',
-  },
-  storage: {
-    provider: (process.env.STORAGE_PROVIDER ?? 'local') as 'local' | 's3' | 'r2' | 'supabase',
-  },
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? '900000', 10),
     max: parseInt(process.env.RATE_LIMIT_MAX ?? '100', 10),

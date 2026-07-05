@@ -1,6 +1,30 @@
 import { useAuthStore } from '@/stores/auth';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+/**
+ * In development, returns the local backend URL (NEXT_PUBLIC_API_URL).
+ * In production on Vercel, returns empty string so requests go to /api/* 
+ * which is proxied to Render via vercel.json rewrites.
+ */
+export function getPublicOrigin(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+  return '';
+}
+
+/**
+ * Socket.IO server URL.
+ * In dev: same as API URL. In production: direct Render URL (socket.io needs a real origin).
+ */
+export function getSocketUrl(): string {
+  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
+    return process.env.NEXT_PUBLIC_SOCKET_URL.replace(/\/$/, '');
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+  return '';
+}
 
 interface FetchOptions extends RequestInit {
   token?: string;
@@ -24,34 +48,33 @@ function updateStoredAccessToken(accessToken: string) {
 }
 
 class ApiClient {
-  private baseUrl: string;
+  private basePath: string;
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
+  constructor() {
+    const origin = getPublicOrigin();
+    this.basePath = origin ? `${origin}/api` : '/api';
   }
 
   private getHeaders(token?: string): HeadersInit {
-    const headers: HeadersInit = {};
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;
   }
 
   async fetch<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
     const { token, headers: customHeaders, _retried, ...rest } = options;
-    const isFormData = rest.body instanceof FormData;
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await fetch(`${this.basePath}${endpoint}`, {
       ...rest,
       credentials: 'include',
       headers: {
-        ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
         ...this.getHeaders(token),
         ...customHeaders,
       },
     });
 
     if (response.status === 401 && token && !_retried && !endpoint.startsWith('/auth/')) {
-      const refreshRes = await fetch(`${this.baseUrl}/auth/refresh`, {
+      const refreshRes = await fetch(`${this.basePath}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -77,10 +100,9 @@ class ApiClient {
   }
 
   post<T>(endpoint: string, body?: unknown, token?: string) {
-    const isFormData = body instanceof FormData;
     return this.fetch<T>(endpoint, {
       method: 'POST',
-      body: isFormData ? body : body ? JSON.stringify(body) : undefined,
+      body: body ? JSON.stringify(body) : undefined,
       token,
     });
   }
@@ -98,5 +120,4 @@ class ApiClient {
   }
 }
 
-export const api = new ApiClient(`${API_URL}/api`);
-export { API_URL };
+export const api = new ApiClient();

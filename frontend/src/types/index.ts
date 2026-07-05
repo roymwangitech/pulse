@@ -18,35 +18,23 @@ export interface Reaction {
 
 export interface Post {
   id: string;
-  imageUrl: string | null;
-  stickerUrl: string | null;
-  caption: string | null;
+  caption: string;
   createdAt: string;
   user: Pick<User, 'id' | 'username' | 'displayName' | 'avatarUrl'>;
   hashtags: string[];
   reactions: Reaction[];
   replyCount: number;
 }
-
 export interface ThreadReply {
   id: string;
   postId: string;
   parentReplyId: string | null;
-  content: string | null;
-  imageUrl: string | null;
-  stickerUrl: string | null;
+  content: string;
   depth: number;
   createdAt: string;
   user: Pick<User, 'id' | 'username' | 'displayName' | 'avatarUrl'>;
   reactions: Reaction[];
   childCount: number;
-}
-
-export interface Sticker {
-  id: string;
-  name: string;
-  url: string;
-  category: string;
 }
 
 export interface TrendingHashtag {

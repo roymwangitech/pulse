@@ -28,7 +28,6 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
   const [showEmoji, setShowEmoji] = useState(false);
   const [reacting, setReacting] = useState(false);
 
-  const mediaUrl = post.imageUrl ?? post.stickerUrl;
   const isDetail = variant === 'detail';
 
   const handleReaction = async (emoji: string) => {
@@ -137,13 +136,6 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
                 )
               )}
             </p>
-          )}
-
-          {mediaUrl && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mediaUrl} alt="" className="max-h-[60vh] w-full object-contain sm:max-h-[500px]" loading="lazy" />
-            </div>
           )}
 
           <div className="mt-3 flex items-center gap-2 sm:gap-4" onClick={(e) => e.stopPropagation()}>

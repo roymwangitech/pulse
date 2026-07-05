@@ -14,9 +14,7 @@ export function formatPostReactions(reactions: { emoji: string; userId: string }
 
 export function formatPost(post: {
   id: string;
-  imageUrl: string | null;
-  stickerUrl: string | null;
-  caption: string | null;
+  caption: string;
   createdAt: Date;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string };
   hashtags: { hashtag: { name: string } }[];
@@ -25,8 +23,6 @@ export function formatPost(post: {
 }) {
   return {
     id: post.id,
-    imageUrl: post.imageUrl,
-    stickerUrl: post.stickerUrl,
     caption: post.caption,
     createdAt: post.createdAt,
     user: post.user,

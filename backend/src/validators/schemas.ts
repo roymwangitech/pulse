@@ -16,14 +16,12 @@ export const loginSchema = z.object({
 });
 
 export const createPostSchema = z.object({
-  caption: z.string().max(500).optional(),
-  stickerUrl: z.string().optional(),
+  caption: z.string().min(1).max(500),
 });
 
 export const createReplySchema = z.object({
-  content: z.string().max(500).optional(),
+  content: z.string().min(1).max(500),
   parentReplyId: z.string().optional(),
-  stickerUrl: z.string().optional(),
 });
 
 export const reactionSchema = z.object({
@@ -38,16 +36,16 @@ export const feedQuerySchema = z.object({
   endDate: z.string().optional(),
 });
 
-export const searchQuerySchema = z.object({
-  q: z.string().min(1).max(100),
-  type: z.enum(['all', 'users', 'hashtags', 'captions']).default('all'),
-  limit: z.coerce.number().min(1).max(50).default(20),
-});
-
 export const threadQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().min(1).max(50).default(15),
   parentReplyId: z.string().optional(),
+});
+
+export const searchQuerySchema = z.object({
+  q: z.string().min(1).max(100),
+  type: z.enum(['all', 'users', 'hashtags', 'captions']).default('all'),
+  limit: z.coerce.number().min(1).max(50).default(20),
 });
 
 export const banUserSchema = z.object({

@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -15,15 +16,6 @@ enum UserRole {
 enum UserStatus {
   ACTIVE
   BANNED
-}
-
-enum StickerCategory {
-  MEMES
-  REACTIONS
-  GAMING
-  ANIME
-  ANIMALS
-  RANDOM_FUN
 }
 
 model User {
@@ -37,11 +29,11 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  posts         Post[]
-  threadReplies ThreadReply[]
-  reactions     Reaction[]
+  posts          Post[]
+  threadReplies  ThreadReply[]
+  reactions      Reaction[]
   replyReactions ReplyReaction[]
-  refreshTokens RefreshToken[]
+  refreshTokens  RefreshToken[]
 
   @@index([username])
   @@index([createdAt])
@@ -63,9 +55,7 @@ model RefreshToken {
 model Post {
   id         String   @id @default(cuid())
   userId     String
-  imageUrl   String?
-  stickerUrl String?
-  caption    String?
+  caption    String
   searchText String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -85,9 +75,7 @@ model ThreadReply {
   postId        String
   parentReplyId String?
   userId        String
-  content       String?
-  imageUrl      String?
-  stickerUrl    String?
+  content       String
   depth         Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -150,14 +138,4 @@ model PostHashtag {
 
   @@id([postId, hashtagId])
   @@index([hashtagId])
-}
-
-model Sticker {
-  id        String          @id @default(cuid())
-  name      String
-  url       String
-  category  StickerCategory
-  createdAt DateTime        @default(now())
-
-  @@index([category])
 }

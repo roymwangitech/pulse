@@ -1,28 +1,15 @@
 import { Router, Response } from 'express';
 import { paramId } from '../lib/params.js';
-import multer from 'multer';
 import { prisma } from '../lib/prisma.js';
-import { storage } from '../lib/storage.js';
 import { extractHashtags, buildSearchText, getDateRangeFilter } from '../lib/utils.js';
 import { formatPost, postInclude } from '../lib/posts.js';
 import { authenticate, optionalAuth, AuthRequest } from '../middleware/auth.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
 import { createPostSchema, feedQuerySchema } from '../validators/schemas.js';
-import { config } from '../config/index.js';
 
 const router = Router();
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: config.upload.maxFileSize },
-  fileFilter: (_req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Only image files are allowed'));
-  },
-});
 
-async function syncHashtags(postId: string, caption?: string) {
-  if (!caption) return;
+async function syncHashtags(postId: string, caption: string) {
   const tags = extractHashtags(caption);
   for (const name of tags) {
     const hashtag = await prisma.hashtag.upsert({
@@ -37,7 +24,6 @@ async function syncHashtags(postId: string, caption?: string) {
     });
   }
 }
-
 
 async function fetchPosts(where: Record<string, unknown>, limit: number, cursor?: string) {
   return prisma.post.findMany({
@@ -81,49 +67,35 @@ router.get('/:id', optionalAuth, async (req, res) => {
   res.json({ post: formatPost(post) });
 });
 
-router.post(
-  '/',
-  authenticate,
-  upload.single('media'),
-  validateBody(createPostSchema),
-  async (req: AuthRequest, res: Response) => {
-    const { caption, stickerUrl } = req.body as { caption?: string; stickerUrl?: string };
-    const file = req.file;
-    const trimmedCaption = caption?.trim();
+router.post('/', authenticate, validateBody(createPostSchema), async (req: AuthRequest, res: Response) => {
+  const { caption } = req.body as { caption: string };
+  const trimmedCaption = caption.trim();
 
-    if (!file && !stickerUrl && !trimmedCaption) {
-      res.status(400).json({ error: 'Post must include a caption, image, GIF, or sticker' });
-      return;
-    }
-
-    let imageUrl: string | undefined;
-    if (file) {
-      imageUrl = await storage.upload(file, 'posts');
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
-    const searchText = buildSearchText(trimmedCaption, user?.username);
-
-    const post = await prisma.post.create({
-      data: {
-        userId: req.user!.userId,
-        imageUrl,
-        stickerUrl: stickerUrl || undefined,
-        caption: trimmedCaption,
-        searchText,
-      },
-      include: postInclude,
-    });
-
-    await syncHashtags(post.id, trimmedCaption);
-
-    const formatted = formatPost(post);
-    const io = req.app.get('io');
-    io?.emit('post:new', formatted);
-
-    res.status(201).json({ post: formatted });
+  if (!trimmedCaption) {
+    res.status(400).json({ error: 'Post must include a message' });
+    return;
   }
-);
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+  const searchText = buildSearchText(trimmedCaption, user?.username);
+
+  const post = await prisma.post.create({
+    data: {
+      userId: req.user!.userId,
+      caption: trimmedCaption,
+      searchText,
+    },
+    include: postInclude,
+  });
+
+  await syncHashtags(post.id, trimmedCaption);
+
+  const formatted = formatPost(post);
+  const io = req.app.get('io');
+  io?.emit('post:new', formatted);
+
+  res.status(201).json({ post: formatted });
+});
 
 router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   const id = paramId(req.params.id);

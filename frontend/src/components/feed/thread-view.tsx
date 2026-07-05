@@ -52,7 +52,6 @@ function ReplyItem({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const queryClient = useQueryClient();
-  const mediaUrl = reply.imageUrl ?? reply.stickerUrl;
   const childTotal = reply.childCount ?? 0;
 
   const {
@@ -122,12 +121,6 @@ function ReplyItem({
             <span className="text-muted-foreground">· {formatRelativeTime(reply.createdAt)}</span>
           </div>
           {reply.content && <p className="mt-1 break-words">{reply.content}</p>}
-          {mediaUrl && (
-            <div className="mt-2 overflow-hidden rounded-xl border border-border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mediaUrl} alt="" className="max-h-60 w-full object-contain" />
-            </div>
-          )}
           {reply.reactions.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {reply.reactions.map((r) => (
