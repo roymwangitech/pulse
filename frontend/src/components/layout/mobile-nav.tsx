@@ -22,13 +22,14 @@ export function MobileNav() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const refreshToken = useAuthStore((s) => s.refreshToken);
   const logout = useAuthStore((s) => s.logout);
   const { theme, toggleTheme } = useThemeStore();
   const [showMore, setShowMore] = useState(false);
 
   const handleLogout = async () => {
     try {
-      if (accessToken) await api.post('/auth/logout', {}, accessToken);
+      if (accessToken) await api.post('/auth/logout', { refreshToken }, accessToken);
     } finally {
       logout();
       setShowMore(false);

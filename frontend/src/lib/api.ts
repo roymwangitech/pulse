@@ -31,17 +31,12 @@ interface FetchOptions extends RequestInit {
   _retried?: boolean;
 }
 
-function updateStoredAccessToken(accessToken: string) {
+function updateStoredTokens(accessToken: string, refreshToken?: string) {
   if (typeof window === 'undefined') return;
   try {
-    useAuthStore.getState().setAccessToken(accessToken);
-    const raw = localStorage.getItem('pulsechat-auth');
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (parsed?.state) {
-      parsed.state.accessToken = accessToken;
-      localStorage.setItem('pulsechat-auth', JSON.stringify(parsed));
-    }
+    const store = useAuthStore.getState();
+    store.setAccessToken(accessToken);
+    if (refreshToken) store.setRefreshToken(refreshToken);
   } catch {
     // ignore storage errors
   }
@@ -74,15 +69,16 @@ class ApiClient {
     });
 
     if (response.status === 401 && token && !_retried && !endpoint.startsWith('/auth/')) {
+      const storedRefreshToken = useAuthStore.getState().refreshToken;
       const refreshRes = await fetch(`${this.basePath}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ refreshToken: storedRefreshToken }),
       });
       if (refreshRes.ok) {
-        const refreshed = await refreshRes.json() as { accessToken: string };
-        updateStoredAccessToken(refreshed.accessToken);
+        const refreshed = await refreshRes.json() as { accessToken: string; refreshToken: string };
+        updateStoredTokens(refreshed.accessToken, refreshed.refreshToken);
         return this.fetch<T>(endpoint, { ...options, token: refreshed.accessToken, _retried: true });
       }
     }

@@ -21,11 +21,11 @@ export function LoginForm() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.post<{ user: Parameters<typeof setAuth>[0]; accessToken: string }>(
+      const res = await api.post<{ user: Parameters<typeof setAuth>[0]; accessToken: string; refreshToken: string }>(
         '/auth/login',
         { username, password }
       );
-      setAuth(res.user, res.accessToken);
+      setAuth(res.user, res.accessToken, res.refreshToken);
       router.push('/');
     } catch (err) {
       setError((err as Error).message);

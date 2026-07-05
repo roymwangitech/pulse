@@ -14,6 +14,7 @@ import { api } from '@/lib/api';
 export default function SettingsPage() {
   const router = useRouter();
   const { user, accessToken, setAuth, logout } = useAuthStore();
+  const refreshToken = useAuthStore((s) => s.refreshToken);
   const { theme, setTheme } = useThemeStore();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [loading, setLoading] = useState(false);
@@ -33,7 +34,7 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       const res = await api.patch<{ user: typeof user }>('/users/profile', { displayName }, accessToken);
-      setAuth(res.user, accessToken);
+      setAuth(res.user, accessToken, refreshToken ?? '');
       setMessage('Profile updated');
     } catch (err) {
       setMessage((err as Error).message);
@@ -46,7 +47,7 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       const res = await api.post<{ avatarUrl: string }>('/users/avatar/regenerate', {}, accessToken);
-      setAuth({ ...user, avatarUrl: res.avatarUrl }, accessToken);
+      setAuth({ ...user, avatarUrl: res.avatarUrl }, accessToken, refreshToken ?? '');
       setMessage('Avatar regenerated');
     } catch (err) {
       setMessage((err as Error).message);
@@ -57,7 +58,7 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     try {
-      await api.post('/auth/logout', {}, accessToken);
+      await api.post('/auth/logout', { refreshToken }, accessToken);
     } finally {
       logout();
       router.push('/login');

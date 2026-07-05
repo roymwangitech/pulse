@@ -23,7 +23,20 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: config.cors.origin,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, health checks)
+    if (!origin) return callback(null, true);
+
+    const allowed = config.cors.origin
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+
+    if (allowed.includes(origin) || allowed.includes('*')) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true,
 }));
 
