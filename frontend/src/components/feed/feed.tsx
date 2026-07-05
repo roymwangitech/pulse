@@ -37,6 +37,9 @@ export function Feed({ filter = 'all', startDate, endDate }: FeedProps) {
         ),
       initialPageParam: undefined as string | undefined,
       getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
+      // Poll every 15 seconds so new posts appear without WebSockets
+      refetchInterval: 15_000,
+      refetchIntervalInBackground: false,
     });
 
   useEffect(() => {
