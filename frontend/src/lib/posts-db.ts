@@ -9,16 +9,19 @@ export function formatPostReactions(reactions: { emoji: string; userId: string }
 }
 
 export function formatPost(post: {
-  id: string; caption: string; createdAt: Date;
+  id: string; caption: string; createdAt: Date; updatedAt: Date;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string };
   hashtags: { hashtag: { name: string } }[];
   reactions: { emoji: string; userId: string }[];
   _count: { replies: number };
 }) {
+  // editedAt is set when updatedAt differs from createdAt by more than 2 seconds
+  const edited = post.updatedAt.getTime() - post.createdAt.getTime() > 2000;
   return {
     id: post.id,
     caption: post.caption,
     createdAt: post.createdAt,
+    editedAt: edited ? post.updatedAt : null,
     user: post.user,
     hashtags: post.hashtags.map((ph) => ph.hashtag.name),
     reactions: formatPostReactions(post.reactions),
