@@ -19,6 +19,7 @@ export interface Reaction {
 export interface Post {
   id: string;
   caption: string;
+  imageUrl: string | null;
   createdAt: string;
   editedAt: string | null;
   user: Pick<User, 'id' | 'username' | 'displayName' | 'avatarUrl'>;

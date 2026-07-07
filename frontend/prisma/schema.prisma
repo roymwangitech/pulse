@@ -59,6 +59,7 @@ model Post {
   id         String   @id @default(cuid())
   userId     String
   caption    String
+  imageUrl   String?
   searchText String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

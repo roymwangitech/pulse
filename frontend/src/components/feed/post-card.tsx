@@ -8,6 +8,7 @@ import { MessageCircle, Trash2, Smile, Pencil, Check, X } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
+import { ImageViewer } from '@/components/ui/image-viewer';
 import { formatRelativeTime } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -31,6 +32,7 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
   const [editCaption, setEditCaption] = useState(post.caption);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const isOwner = user?.id === post.user.id;
   const isDetail = variant === 'detail';
@@ -164,6 +166,27 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
                 )}
               </p>
             )
+          )}
+
+          {/* Post image */}
+          {post.imageUrl && !editing && (
+            <div
+              className="mt-2 overflow-hidden rounded-2xl border border-border"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.imageUrl}
+                alt=""
+                loading="lazy"
+                className="max-h-[500px] w-full cursor-zoom-in object-cover transition-opacity hover:opacity-95"
+                onClick={() => setViewerOpen(true)}
+              />
+            </div>
+          )}
+
+          {viewerOpen && post.imageUrl && (
+            <ImageViewer src={post.imageUrl} onClose={() => setViewerOpen(false)} />
           )}
 
           <div className="mt-3 flex items-center gap-2 sm:gap-4" onClick={(e) => e.stopPropagation()}>

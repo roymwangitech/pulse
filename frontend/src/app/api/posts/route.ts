@@ -12,7 +12,10 @@ const feedSchema = z.object({
   endDate: z.string().optional(),
 });
 
-const createSchema = z.object({ caption: z.string().min(1).max(500) });
+const createSchema = z.object({
+  caption: z.string().min(1).max(500),
+  imageUrl: z.string().url().optional(),
+});
 
 async function syncHashtags(postId: string, caption: string) {
   const tags = extractHashtags(caption);
@@ -64,12 +67,13 @@ export async function POST(req: NextRequest) {
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
 
-    const caption = parsed.data.caption.trim();
+    const { caption: rawCaption, imageUrl } = parsed.data;
+    const caption = rawCaption.trim();
     const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
     const searchText = buildSearchText(caption, dbUser?.username);
 
     const post = await prisma.post.create({
-      data: { userId: user.userId, caption, searchText },
+      data: { userId: user.userId, caption, searchText, imageUrl: imageUrl ?? null },
       include: postInclude,
     });
 

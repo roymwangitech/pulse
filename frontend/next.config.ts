@@ -1,7 +1,12 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // All avatars are served locally from /public/avatars/ — no remote image domains needed
+  images: {
+    remotePatterns: [
+      // Vercel Blob storage for post images
+      { protocol: 'https', hostname: '*.public.blob.vercel-storage.com' },
+    ],
+  },
 };
 
 export default nextConfig;
