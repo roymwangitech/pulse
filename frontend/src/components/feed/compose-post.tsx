@@ -117,7 +117,7 @@ export function ComposePost() {
         value={caption}
         onChange={(e) => setCaption(e.target.value)}
         onPaste={handlePaste}
-        placeholder="What's pulsing? #hashtags and https://links welcome"
+        placeholder="What's pulsing?"
         className="w-full resize-none bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-lg"
         rows={3}
         maxLength={MAX_CHARS}
