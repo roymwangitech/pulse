@@ -128,7 +128,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     setText(e.target.value);
     const el = e.target;
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    el.style.height = Math.min(el.scrollHeight, 240) + 'px';
   };
 
   function shouldShowTime(gi: number) {
@@ -143,6 +143,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
+      <div className="mx-auto flex h-full w-full max-w-2xl flex-col min-h-0">
       {/* Header */}
       <div
         className="flex shrink-0 items-center gap-3 border-b border-border bg-background/90 px-3 py-3 backdrop-blur"
@@ -256,10 +257,10 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
                 // Shift+Enter inserts newline (default textarea behaviour, nothing to override)
               }}
-              placeholder="Message… (Shift+Enter for new line)"
+              placeholder="Message…"
               maxLength={MAX_CHARS}
               rows={1}
-              className="max-h-40 w-full resize-none rounded-2xl border border-border bg-card px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-twitter-blue"
+              className="max-h-60 w-full resize-none rounded-2xl border border-border bg-card px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-twitter-blue"
               style={{ overflowY: 'auto' }}
             />
             {nearLimit && (
@@ -279,6 +280,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
             <Send className="h-4 w-4" />
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );
