@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Smile, ImagePlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
@@ -8,6 +8,24 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { useFeedStore } from '@/stores/feed';
 import type { Post } from '@/types';
+
+const MAX_CHARS = 3000;
+
+async function uploadFile(file: File, token: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(err.error ?? 'Upload failed');
+  }
+  const data = await res.json() as { url: string };
+  return data.url;
+}
 
 export function ComposePost() {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -30,16 +48,19 @@ export function ComposePost() {
   }
 
   const canPost = Boolean(caption.trim()) || Boolean(imageFile);
+  const charsLeft = MAX_CHARS - caption.length;
+  const nearLimit = charsLeft <= 200;
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const setImage = (file: File) => {
     if (file.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      setError('Only JPEG, PNG, GIF and WebP are allowed');
+      return;
+    }
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
     setError('');
-    // Reset input so same file can be re-selected
-    e.target.value = '';
   };
 
   const clearImage = () => {
@@ -48,29 +69,32 @@ export function ComposePost() {
     setImagePreview(null);
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setImage(file);
+    e.target.value = '';
+  };
+
+  // Handle paste — intercept image files pasted from clipboard
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return; // let normal text paste proceed
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (file) setImage(file);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSubmit = async () => {
     if (!canPost) { setError('Add a message or image'); return; }
     setLoading(true);
     setError('');
     try {
       let imageUrl: string | undefined;
-
       if (imageFile) {
         setUploading(true);
-        const form = new FormData();
-        form.append('file', imageFile);
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: form,
-        });
+        imageUrl = await uploadFile(imageFile, accessToken);
         setUploading(false);
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error ?? 'Upload failed');
-        }
-        const data = await res.json() as { url: string };
-        imageUrl = data.url;
       }
 
       const res = await api.post<{ post: Post }>(
@@ -95,10 +119,11 @@ export function ComposePost() {
       <textarea
         value={caption}
         onChange={(e) => setCaption(e.target.value)}
-        placeholder="What's pulsing? #hashtags welcome"
+        onPaste={handlePaste}
+        placeholder="What's pulsing? #hashtags and https://links welcome"
         className="w-full resize-none bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-lg"
         rows={3}
-        maxLength={500}
+        maxLength={MAX_CHARS}
       />
 
       {/* Image preview */}
@@ -121,11 +146,9 @@ export function ComposePost() {
 
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          {/* Emoji picker */}
           <div className="relative">
             <Button
-              variant="ghost"
-              size="icon"
+              variant="ghost" size="icon"
               onClick={() => setShowEmoji(!showEmoji)}
               className="h-9 w-9 text-twitter-blue sm:h-10 sm:w-10"
               aria-label="Add emoji"
@@ -138,11 +161,8 @@ export function ComposePost() {
               onSelect={(emoji) => setCaption((c) => c + emoji)}
             />
           </div>
-
-          {/* Image picker */}
           <Button
-            variant="ghost"
-            size="icon"
+            variant="ghost" size="icon"
             onClick={() => fileInputRef.current?.click()}
             disabled={!!imageFile}
             className="h-9 w-9 text-twitter-blue sm:h-10 sm:w-10"
@@ -150,22 +170,23 @@ export function ComposePost() {
           >
             <ImagePlus className="h-5 w-5" />
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            className="hidden"
-            onChange={handleImageSelect}
-          />
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={handleImageSelect} />
         </div>
 
-        <Button
-          onClick={handleSubmit}
-          disabled={loading || !canPost}
-          className="w-full max-w-[140px] sm:w-auto"
-        >
-          {uploading ? 'Uploading...' : loading ? 'Posting...' : 'Pulse'}
-        </Button>
+        <div className="flex items-center gap-3">
+          {nearLimit && (
+            <span className={`text-xs tabular-nums ${charsLeft < 0 ? 'text-red-500' : charsLeft < 50 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+              {charsLeft}
+            </span>
+          )}
+          <Button
+            onClick={handleSubmit}
+            disabled={loading || !canPost || charsLeft < 0}
+            className="w-full max-w-[140px] sm:w-auto"
+          >
+            {uploading ? 'Uploading...' : loading ? 'Posting...' : 'Pulse'}
+          </Button>
+        </div>
       </div>
     </div>
   );

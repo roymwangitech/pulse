@@ -35,6 +35,7 @@ export interface ThreadReply {
   content: string;
   depth: number;
   createdAt: string;
+  editedAt?: string;
   user: Pick<User, 'id' | 'username' | 'displayName' | 'avatarUrl'>;
   reactions: Reaction[];
   childCount: number;

@@ -15,6 +15,28 @@ import { useAuthStore } from '@/stores/auth';
 import { useFeedStore } from '@/stores/feed';
 import type { Post } from '@/types';
 
+// Splits caption into hashtags, URLs, and plain text — each rendered appropriately
+function renderCaption(text: string) {
+  const parts = text.split(/(#[\w\u00C0-\u024F]+|https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('#')) {
+      return (
+        <Link key={i} href={`/explore?q=${encodeURIComponent(part)}`} className="text-twitter-blue hover:underline" onClick={(e) => e.stopPropagation()}>
+          {part}
+        </Link>
+      );
+    }
+    if (/^https?:\/\//.test(part)) {
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-twitter-blue hover:underline break-all" onClick={(e) => e.stopPropagation()}>
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 interface PostCardProps {
   post: Post;
   variant?: 'feed' | 'detail';
@@ -155,15 +177,9 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
               </div>
             </div>
           ) : (
-            post.caption && (
+            post.caption && post.caption.trim() && (
               <p className="mt-1 whitespace-pre-wrap break-words">
-                {post.caption.split(/(#[\w]+)/g).map((part, i) =>
-                  part.startsWith('#') ? (
-                    <Link key={i} href={`/explore?q=${part}`} className="text-twitter-blue hover:underline" onClick={(e) => e.stopPropagation()}>
-                      {part}
-                    </Link>
-                  ) : part
-                )}
+                {renderCaption(post.caption)}
               </p>
             )
           )}

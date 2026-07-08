@@ -13,7 +13,7 @@ const feedSchema = z.object({
 });
 
 const createSchema = z.object({
-  caption: z.string().min(1).max(500),
+  caption: z.string().max(3000),
   imageUrl: z.string().url().optional(),
 });
 
