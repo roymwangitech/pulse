@@ -16,12 +16,17 @@ export const loginSchema = z.object({
 });
 
 export const createPostSchema = z.object({
-  caption: z.string().min(1).max(500),
+  caption: z.string().max(3000),
+  imageUrl: z.string().url().optional(),
 });
 
 export const createReplySchema = z.object({
-  content: z.string().min(1).max(500),
+  content: z.string().max(2000).optional(),
+  imageUrl: z.string().url().optional(),
   parentReplyId: z.string().optional(),
+}).refine(data => (data.content && data.content.trim().length > 0) || data.imageUrl, {
+  message: "Reply must have either content or an image",
+  path: ["content"]
 });
 
 export const reactionSchema = z.object({

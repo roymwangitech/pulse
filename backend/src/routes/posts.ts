@@ -68,11 +68,11 @@ router.get('/:id', optionalAuth, async (req, res) => {
 });
 
 router.post('/', authenticate, validateBody(createPostSchema), async (req: AuthRequest, res: Response) => {
-  const { caption } = req.body as { caption: string };
-  const trimmedCaption = caption.trim();
+  const { caption, imageUrl } = req.body as { caption?: string; imageUrl?: string };
+  const trimmedCaption = caption?.trim() || '';
 
-  if (!trimmedCaption) {
-    res.status(400).json({ error: 'Post must include a message' });
+  if (!trimmedCaption && !imageUrl) {
+    res.status(400).json({ error: 'Post must include a message or an image' });
     return;
   }
 
@@ -83,6 +83,7 @@ router.post('/', authenticate, validateBody(createPostSchema), async (req: AuthR
     data: {
       userId: req.user!.userId,
       caption: trimmedCaption,
+      imageUrl: imageUrl || null,
       searchText,
     },
     include: postInclude,

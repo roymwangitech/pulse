@@ -13,6 +13,7 @@ function formatReply(reply: {
   postId: string;
   parentReplyId: string | null;
   content: string;
+  imageUrl: string | null;
   depth: number;
   createdAt: Date;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string };
@@ -29,6 +30,7 @@ function formatReply(reply: {
     postId: reply.postId,
     parentReplyId: reply.parentReplyId,
     content: reply.content,
+    imageUrl: reply.imageUrl ?? null,
     depth: reply.depth,
     createdAt: reply.createdAt,
     user: reply.user,
@@ -76,13 +78,8 @@ router.get('/:postId', validateQuery(threadQuerySchema), async (req, res) => {
 
 router.post('/:postId', authenticate, validateBody(createReplySchema), async (req: AuthRequest, res: Response) => {
   const postId = paramId(req.params.postId);
-  const { content, parentReplyId } = req.body as { content: string; parentReplyId?: string };
-  const trimmedContent = content.trim();
-
-  if (!trimmedContent) {
-    res.status(400).json({ error: 'Reply must include a message' });
-    return;
-  }
+  const { content, imageUrl, parentReplyId } = req.body as { content?: string; imageUrl?: string; parentReplyId?: string };
+  const trimmedContent = content?.trim() || '';
 
   const post = await prisma.post.findUnique({ where: { id: postId } });
   if (!post) {
@@ -111,6 +108,7 @@ router.post('/:postId', authenticate, validateBody(createReplySchema), async (re
       parentReplyId: parentReplyId || undefined,
       userId: req.user!.userId,
       content: trimmedContent,
+      imageUrl: imageUrl || null,
       depth,
     },
     include: {

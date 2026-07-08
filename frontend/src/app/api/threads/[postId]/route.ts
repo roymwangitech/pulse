@@ -7,6 +7,7 @@ import { calculateReplyDepth } from '@/lib/posts-db';
 function formatReply(reply: {
   id: string; postId: string; parentReplyId: string | null;
   content: string; depth: number; createdAt: Date;
+  imageUrl: string | null;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string };
   reactions: { emoji: string; userId: string }[];
   _count?: { childReplies: number };
@@ -16,6 +17,7 @@ function formatReply(reply: {
   return {
     id: reply.id, postId: reply.postId, parentReplyId: reply.parentReplyId,
     content: reply.content, depth: reply.depth, createdAt: reply.createdAt,
+    imageUrl: reply.imageUrl ?? null,
     user: reply.user,
     reactions: Array.from(reactionMap.entries()).map(([emoji, count]) => ({ emoji, count })),
     childCount: reply._count?.childReplies ?? 0,
@@ -35,8 +37,12 @@ const querySchema = z.object({
 });
 
 const createSchema = z.object({
-  content: z.string().min(1).max(500),
+  content: z.string().max(2000).optional(),
+  imageUrl: z.string().url().optional().or(z.literal('')),
   parentReplyId: z.string().optional(),
+}).refine(data => (data.content && data.content.trim().length > 0) || data.imageUrl, {
+  message: "Reply must have either content or an image",
+  path: ["content"]
 });
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
@@ -79,7 +85,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
 
-    const { content, parentReplyId } = parsed.data;
+    const { content, imageUrl, parentReplyId } = parsed.data;
     const post = await prisma.post.findUnique({ where: { id: postId } });
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
 
@@ -92,7 +98,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
     }
 
     const reply = await prisma.threadReply.create({
-      data: { postId, parentReplyId: parentReplyId ?? undefined, userId: authUser.userId, content: content.trim(), depth },
+      data: {
+        postId,
+        parentReplyId: parentReplyId ?? undefined,
+        userId: authUser.userId,
+        content: content?.trim() || '',
+        imageUrl: imageUrl || null,
+        depth
+      },
       include: replyInclude,
     });
 

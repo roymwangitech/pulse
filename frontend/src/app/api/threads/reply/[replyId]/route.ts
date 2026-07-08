@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { authenticate } from '@/lib/auth-server';
 
-const editSchema = z.object({ content: z.string().min(1).max(3000) });
+const editSchema = z.object({ content: z.string().min(1).max(2000) });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ replyId: string }> }) {
   try {
@@ -35,6 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ re
         id: updated.id, postId: updated.postId, parentReplyId: updated.parentReplyId,
         content: updated.content, depth: updated.depth, createdAt: updated.createdAt,
         editedAt: updated.updatedAt,
+        imageUrl: updated.imageUrl ?? null,
         user: updated.user,
         reactions: Array.from(reactionMap.entries()).map(([emoji, count]) => ({ emoji, count })),
         childCount: updated._count.childReplies,

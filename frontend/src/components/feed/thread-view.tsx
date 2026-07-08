@@ -1,19 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ArrowLeft, ChevronDown, Pencil, Trash2, Check, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Pencil, Trash2, Check, X, Smile, ImagePlus } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { PostCard } from '@/components/feed/post-card';
-import { formatRelativeTime } from '@/lib/utils';
+import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
+import { ImageViewer } from '@/components/ui/image-viewer';
+import { formatRelativeTime, getProxiedUrl } from '@/lib/utils';
 import type { Post, ThreadReply } from '@/types';
 
 const REPLIES_PAGE_SIZE = 15;
 const CHILD_REPLIES_PAGE_SIZE = 10;
+const MAX_CHARS = 2000;
+
+async function uploadFile(file: File, token: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(err.error ?? 'Upload failed');
+  }
+  const data = await res.json() as { url: string };
+  return data.url;
+}
+
+function renderCaption(text: string) {
+  const parts = text.split(/(#[\w\u00C0-\u024F]+|https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('#')) {
+      return (
+        <Link key={i} href={`/explore?q=${encodeURIComponent(part)}`} className="text-twitter-blue hover:underline" onClick={(e) => e.stopPropagation()}>
+          {part}
+        </Link>
+      );
+    }
+    if (/^https?:\/\//.test(part)) {
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-twitter-blue hover:underline break-all" onClick={(e) => e.stopPropagation()}>
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
 
 interface ThreadRepliesResponse {
   replies: ThreadReply[];
@@ -53,6 +93,38 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
   const childTotal = reply.childCount ?? 0;
   const isOwner = me?.id === reply.user.id;
 
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  const setImage = useCallback((file: File) => {
+    if (file.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      setError('Only JPEG, PNG, GIF and WebP are allowed');
+      return;
+    }
+    setImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
+    setImageFile(file);
+    setError('');
+  }, []);
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+  };
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (file) setImage(file);
+  }, [setImage]);
+
   const { data: childData, fetchNextPage: fetchMoreChildren, hasNextPage: hasMoreChildren, isFetchingNextPage: loadingMoreChildren, isLoading: loadingChildren } =
     useInfiniteQuery({
       queryKey: ['thread-children', postId, reply.id],
@@ -68,13 +140,20 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
   const remainingChildren = Math.max(0, childTotal - children.length);
 
   const handleReply = async () => {
-    if (!accessToken || !content.trim()) return;
+    if (!accessToken || (!content.trim() && !imageFile)) return;
     setLoading(true);
     setError('');
     try {
+      let imageUrl: string | undefined;
+      if (imageFile) {
+        setUploading(true);
+        imageUrl = await uploadFile(imageFile, accessToken);
+        setUploading(false);
+      }
+
       const res = await api.post<{ reply: ThreadReply }>(
         `/threads/${postId}`,
-        { content: content.trim(), parentReplyId: reply.id },
+        { content: content.trim(), imageUrl, parentReplyId: reply.id },
         accessToken
       );
       queryClient.setQueryData(
@@ -89,9 +168,12 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
       );
       queryClient.invalidateQueries({ queryKey: ['thread', postId] });
       setContent('');
+      clearImage();
+      setShowEmoji(false);
       setShowReply(false);
     } catch (err) {
       setError((err as Error).message);
+      setUploading(false);
     } finally {
       setLoading(false);
     }
@@ -128,6 +210,9 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
 
   if (deleted) return null;
 
+  const charsLeft = MAX_CHARS - content.length;
+  const nearLimit = charsLeft <= 200;
+
   return (
     <div className={depth > 0 ? 'ml-3 border-l border-border pl-2 sm:ml-6 sm:pl-4' : ''}>
       <div className="flex gap-2 py-3 sm:gap-3">
@@ -147,10 +232,10 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
             {isOwner && !editing && (
               <div className="ml-auto flex items-center gap-0.5">
                 <button
-                  type="button"
-                  onClick={() => { setEditContent(currentContent); setEditing(true); }}
-                  className="rounded p-1 text-muted-foreground hover:text-foreground"
-                  aria-label="Edit reply"
+                   type="button"
+                   onClick={() => { setEditContent(currentContent); setEditing(true); }}
+                   className="rounded p-1 text-muted-foreground hover:text-foreground"
+                   aria-label="Edit reply"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -173,7 +258,7 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
                 onChange={(e) => setEditContent(e.target.value)}
                 className="w-full resize-none rounded-lg border border-twitter-blue bg-card p-2 text-sm outline-none focus:ring-2 focus:ring-twitter-blue"
                 rows={2}
-                maxLength={3000}
+                maxLength={2000}
                 autoFocus
               />
               {editError && <p className="text-xs text-red-500">{editError}</p>}
@@ -198,7 +283,29 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
               </div>
             </div>
           ) : (
-            <p className="mt-1 break-words">{currentContent}</p>
+            <>
+              {currentContent && currentContent.trim() && (
+                <p className="mt-1 whitespace-pre-wrap break-words">{renderCaption(currentContent)}</p>
+              )}
+              {reply.imageUrl && (
+                <div
+                  className="mt-2 max-w-md overflow-hidden rounded-2xl border border-border"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <img
+                    src={getProxiedUrl(reply.imageUrl)}
+                    alt=""
+                    loading="lazy"
+                    className="max-h-[300px] w-full cursor-zoom-in object-cover transition-opacity hover:opacity-95"
+                    onClick={() => setViewerOpen(true)}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {viewerOpen && reply.imageUrl && (
+            <ImageViewer src={getProxiedUrl(reply.imageUrl)} onClose={() => setViewerOpen(false)} />
           )}
 
           {reply.reactions.length > 0 && (
@@ -222,20 +329,81 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
           )}
 
           {showReply && (
-            <div className="mt-2 space-y-2">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <input
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleReply()}
-                  placeholder="Write a reply..."
-                  className="flex-1 rounded-full border border-border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-twitter-blue sm:px-4"
-                />
-                <Button size="sm" onClick={handleReply} disabled={loading || !content.trim()} className="w-full sm:w-auto">
-                  {loading ? 'Sending...' : 'Reply'}
-                </Button>
-              </div>
+            <div className="mt-2 rounded-2xl border border-border bg-card/30 p-3 space-y-2">
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onPaste={handlePaste}
+                placeholder="Write a reply..."
+                className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                rows={2}
+                maxLength={MAX_CHARS}
+              />
+
+              {imagePreview && (
+                <div className="relative mb-2 overflow-hidden rounded-xl border border-border max-w-[200px]">
+                  <img src={imagePreview} alt="Preview" className="max-h-40 w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={clearImage}
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                    aria-label="Remove image"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+
               {error && <p className="text-xs text-red-500">{error}</p>}
+
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">
+                <div className="flex items-center gap-1">
+                  <div className="relative">
+                    <Button
+                      variant="ghost" size="icon"
+                      onClick={() => setShowEmoji(!showEmoji)}
+                      className="h-8 w-8 text-twitter-blue"
+                      aria-label="Add emoji"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </Button>
+                    <EmojiPickerPopover
+                      open={showEmoji}
+                      onClose={() => setShowEmoji(false)}
+                      onSelect={(emoji) => setContent((c) => c + emoji)}
+                    />
+                  </div>
+                  <Button
+                    variant="ghost" size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={!!imageFile}
+                    className="h-8 w-8 text-twitter-blue"
+                    aria-label="Add image"
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                  </Button>
+                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setImage(file);
+                    e.target.value = '';
+                  }} />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {nearLimit && (
+                    <span className={`text-xs tabular-nums ${charsLeft < 0 ? 'text-red-500' : charsLeft < 50 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+                      {charsLeft}
+                    </span>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={handleReply}
+                    disabled={loading || uploading || (!content.trim() && !imageFile) || charsLeft < 0}
+                  >
+                    {uploading ? 'Uploading...' : loading ? 'Sending...' : 'Reply'}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -269,6 +437,37 @@ export function ThreadView({ postId }: { postId: string }) {
   const [error, setError] = useState('');
   const queryClient = useQueryClient();
 
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const setImage = useCallback((file: File) => {
+    if (file.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      setError('Only JPEG, PNG, GIF and WebP are allowed');
+      return;
+    }
+    setImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
+    setImageFile(file);
+    setError('');
+  }, []);
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+  };
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (file) setImage(file);
+  }, [setImage]);
+
   const { data: postData } = useQuery({
     queryKey: ['post', postId],
     queryFn: () => api.get<{ post: Post }>(`/posts/${postId}`),
@@ -292,11 +491,18 @@ export function ThreadView({ postId }: { postId: string }) {
   const remainingTopLevel = Math.max(0, topLevelTotal - topLevelReplies.length);
 
   const handleReply = async () => {
-    if (!accessToken || !content.trim()) return;
+    if (!accessToken || (!content.trim() && !imageFile)) return;
     setLoading(true);
     setError('');
     try {
-      const res = await api.post<{ reply: ThreadReply }>(`/threads/${postId}`, { content: content.trim() }, accessToken);
+      let imageUrl: string | undefined;
+      if (imageFile) {
+        setUploading(true);
+        imageUrl = await uploadFile(imageFile, accessToken);
+        setUploading(false);
+      }
+
+      const res = await api.post<{ reply: ThreadReply }>(`/threads/${postId}`, { content: content.trim(), imageUrl }, accessToken);
       queryClient.setQueryData(
         ['thread', postId],
         (old: { pages: ThreadRepliesResponse[]; pageParams: unknown[] } | undefined) => {
@@ -312,12 +518,18 @@ export function ThreadView({ postId }: { postId: string }) {
         old ? { post: { ...old.post, replyCount: old.post.replyCount + 1 } } : old
       );
       setContent('');
+      clearImage();
+      setShowEmoji(false);
     } catch (err) {
       setError((err as Error).message);
+      setUploading(false);
     } finally {
       setLoading(false);
     }
   };
+
+  const charsLeft = MAX_CHARS - content.length;
+  const nearLimit = charsLeft <= 200;
 
   return (
     <div>
@@ -343,19 +555,80 @@ export function ThreadView({ postId }: { postId: string }) {
       <div className="border-b border-border p-3 sm:p-4">
         {accessToken ? (
           <div className="space-y-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-              <input
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleReply()}
-                placeholder="Reply to thread..."
-                className="flex-1 rounded-full border border-border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-twitter-blue sm:px-4"
-              />
-              <Button onClick={handleReply} disabled={loading || !content.trim()} className="w-full sm:w-auto">
-                {loading ? 'Sending...' : 'Reply'}
-              </Button>
-            </div>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onPaste={handlePaste}
+              placeholder="Reply to thread..."
+              className="w-full resize-none bg-transparent text-base outline-none placeholder:text-muted-foreground"
+              rows={3}
+              maxLength={MAX_CHARS}
+            />
+
+            {imagePreview && (
+              <div className="relative mb-3 overflow-hidden rounded-2xl border border-border">
+                <img src={imagePreview} alt="Preview" className="max-h-72 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                  aria-label="Remove image"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
             {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/50">
+              <div className="flex items-center gap-1">
+                <div className="relative">
+                  <Button
+                    variant="ghost" size="icon"
+                    onClick={() => setShowEmoji(!showEmoji)}
+                    className="h-9 w-9 text-twitter-blue sm:h-10 sm:w-10"
+                    aria-label="Add emoji"
+                  >
+                    <Smile className="h-5 w-5" />
+                  </Button>
+                  <EmojiPickerPopover
+                    open={showEmoji}
+                    onClose={() => setShowEmoji(false)}
+                    onSelect={(emoji) => setContent((c) => c + emoji)}
+                  />
+                </div>
+                <Button
+                  variant="ghost" size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!!imageFile}
+                  className="h-9 w-9 text-twitter-blue sm:h-10 sm:w-10"
+                  aria-label="Add image"
+                >
+                  <ImagePlus className="h-5 w-5" />
+                </Button>
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setImage(file);
+                  e.target.value = '';
+                }} />
+              </div>
+
+              <div className="flex items-center gap-3">
+                {nearLimit && (
+                  <span className={`text-xs tabular-nums ${charsLeft < 0 ? 'text-red-500' : charsLeft < 50 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+                    {charsLeft}
+                  </span>
+                )}
+                <Button
+                  onClick={handleReply}
+                  disabled={loading || uploading || (!content.trim() && !imageFile) || charsLeft < 0}
+                  className="w-full max-w-[140px] sm:w-auto"
+                >
+                  {uploading ? 'Uploading...' : loading ? 'Sending...' : 'Reply'}
+                </Button>
+              </div>
+            </div>
           </div>
         ) : (
           <p className="text-center text-muted-foreground">

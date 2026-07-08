@@ -15,6 +15,7 @@ export function formatPostReactions(reactions: { emoji: string; userId: string }
 export function formatPost(post: {
   id: string;
   caption: string;
+  imageUrl: string | null;
   createdAt: Date;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string };
   hashtags: { hashtag: { name: string } }[];
@@ -24,6 +25,7 @@ export function formatPost(post: {
   return {
     id: post.id,
     caption: post.caption,
+    imageUrl: post.imageUrl ?? null,
     createdAt: post.createdAt,
     user: post.user,
     hashtags: post.hashtags.map((ph) => ph.hashtag.name),

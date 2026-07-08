@@ -80,6 +80,7 @@ model ThreadReply {
   parentReplyId String?
   userId        String
   content       String
+  imageUrl      String?
   depth         Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
