@@ -9,7 +9,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
 import { ImageViewer } from '@/components/ui/image-viewer';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime, getProxiedUrl } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { useFeedStore } from '@/stores/feed';
@@ -192,7 +192,7 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={post.imageUrl}
+                src={getProxiedUrl(post.imageUrl)}
                 alt=""
                 loading="lazy"
                 className="max-h-[500px] w-full cursor-zoom-in object-cover transition-opacity hover:opacity-95"
@@ -202,7 +202,7 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
           )}
 
           {viewerOpen && post.imageUrl && (
-            <ImageViewer src={post.imageUrl} onClose={() => setViewerOpen(false)} />
+            <ImageViewer src={getProxiedUrl(post.imageUrl)} onClose={() => setViewerOpen(false)} />
           )}
 
           <div className="mt-3 flex items-center gap-2 sm:gap-4" onClick={(e) => e.stopPropagation()}>

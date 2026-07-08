@@ -82,13 +82,13 @@ export function ImageViewer({ src, alt, onClose }: ImageViewerProps) {
           transition={{ type: 'spring', damping: 28, stiffness: 320 }}
           className="relative max-h-[90dvh] max-w-[92vw]"
           onClick={(e) => e.stopPropagation()}
-          style={{ transform: `scale(${scale})`, transition: 'transform 0.15s ease' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt ?? ''}
             className="block max-h-[90dvh] max-w-[92vw] rounded-xl object-contain shadow-2xl"
+            style={{ transform: `scale(${scale})`, transition: 'transform 0.15s ease' }}
             draggable={false}
           />
         </motion.div>

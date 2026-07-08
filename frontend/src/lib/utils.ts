@@ -22,3 +22,12 @@ export function extractHashtags(text: string): string[] {
   const matches = text.match(/#[\w]+/g);
   return matches ? [...new Set(matches)] : [];
 }
+
+export function getProxiedUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  if (url.includes('.public.blob.vercel-storage.com')) {
+    return `/api/blob?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
