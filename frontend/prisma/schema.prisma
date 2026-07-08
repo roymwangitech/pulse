@@ -167,14 +167,17 @@ model DirectMessage {
   id             String   @id @default(cuid())
   conversationId String
   senderId       String
-  content        String   @db.VarChar(1000)
+  content        String   @db.VarChar(3000)
+  replyToId      String?
   readAt         DateTime?
   deletedBySender   Boolean @default(false)
   deletedByReceiver Boolean @default(false)
   createdAt      DateTime @default(now())
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation("MsgSender", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User          @relation("MsgSender", fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo      DirectMessage? @relation("MsgReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      DirectMessage[] @relation("MsgReply")
 
   @@index([conversationId, createdAt(sort: Desc)])
   @@index([senderId])

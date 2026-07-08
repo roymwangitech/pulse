@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { signAccessToken, createRefreshToken, revokeRefreshToken } from '@/lib/auth-server';
-import jwt from 'jsonwebtoken';
 
 export async function POST(req: NextRequest) {
   try {

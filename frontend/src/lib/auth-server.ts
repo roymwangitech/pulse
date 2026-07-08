@@ -14,7 +14,8 @@ export interface TokenPayload {
 function accessSecret() {
   return process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret';
 }
-function refreshSecret() {
+
+function refreshSecretValue() {
   return process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret';
 }
 
@@ -51,8 +52,7 @@ export async function validateRefreshToken(token: string): Promise<TokenPayload 
   try {
     const stored = await prisma.refreshToken.findUnique({ where: { token } });
     if (!stored || stored.expiresAt < new Date()) return null;
-    const refreshJwt = process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret';
-    return jwt.verify(token.length === 80 ? stored.token : token, refreshJwt) as TokenPayload;
+    return jwt.verify(token.length === 80 ? stored.token : token, refreshSecretValue()) as TokenPayload;
   } catch {
     return null;
   }

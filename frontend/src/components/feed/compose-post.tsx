@@ -39,6 +39,26 @@ export function ComposePost() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const setImage = useCallback((file: File) => {
+    if (file.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      setError('Only JPEG, PNG, GIF and WebP are allowed');
+      return;
+    }
+    setImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
+    setImageFile(file);
+    setError('');
+  }, []);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (file) setImage(file);
+  }, [setImage]);
+
   if (!accessToken) {
     return (
       <div className="border-b border-border p-4 text-center text-muted-foreground">
@@ -51,22 +71,9 @@ export function ComposePost() {
   const charsLeft = MAX_CHARS - caption.length;
   const nearLimit = charsLeft <= 200;
 
-  const setImage = (file: File) => {
-    if (file.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
-    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
-      setError('Only JPEG, PNG, GIF and WebP are allowed');
-      return;
-    }
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-    setError('');
-  };
-
   const clearImage = () => {
     setImageFile(null);
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(null);
+    setImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,16 +81,6 @@ export function ComposePost() {
     if (file) setImage(file);
     e.target.value = '';
   };
-
-  // Handle paste — intercept image files pasted from clipboard
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = Array.from(e.clipboardData.items);
-    const imageItem = items.find((item) => item.type.startsWith('image/'));
-    if (!imageItem) return; // let normal text paste proceed
-    e.preventDefault();
-    const file = imageItem.getAsFile();
-    if (file) setImage(file);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
     if (!canPost) { setError('Add a message or image'); return; }

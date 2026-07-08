@@ -70,4 +70,6 @@ export interface DirectMessage {
   fromMe: boolean;
   readAt: string | null;
   createdAt: string;
+  replyToId?: string | null;
+  replyTo?: { id: string; content: string; senderId: string } | null;
 }

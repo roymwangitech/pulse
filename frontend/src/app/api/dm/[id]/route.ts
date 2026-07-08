@@ -3,9 +3,21 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { authenticate } from '@/lib/auth-server';
 
-const sendSchema = z.object({ content: z.string().min(1).max(1000) });
+const sendSchema = z.object({
+  content: z.string().min(1).max(3000),
+  replyToId: z.string().optional(),
+});
 
-// Auto-prune messages older than 30 days to save DB space
+const msgSelect = {
+  id: true,
+  content: true,
+  senderId: true,
+  readAt: true,
+  createdAt: true,
+  replyToId: true,
+  replyTo: { select: { id: true, content: true, senderId: true } },
+} as const;
+
 async function pruneOldMessages(conversationId: string) {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   await prisma.directMessage.deleteMany({
@@ -13,7 +25,6 @@ async function pruneOldMessages(conversationId: string) {
   });
 }
 
-// GET /api/dm/[id] — fetch messages in a conversation
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const me = await authenticate(req);
@@ -25,7 +36,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
-    // Prune old messages on read (background, non-blocking)
     pruneOldMessages(id).catch(() => {});
 
     const { searchParams } = new URL(req.url);
@@ -35,18 +45,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const messages = await prisma.directMessage.findMany({
       where: {
         conversationId: id,
-        // Hide messages this user has soft-deleted
-        ...(conv.userAId === me.userId
-          ? { deletedBySender: false }
-          : { deletedByReceiver: false }),
+        ...(conv.userAId === me.userId ? { deletedBySender: false } : { deletedByReceiver: false }),
       },
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: { createdAt: 'desc' },
-      select: { id: true, content: true, senderId: true, readAt: true, createdAt: true },
+      select: msgSelect,
     });
 
-    // Mark incoming messages as read
     await prisma.directMessage.updateMany({
       where: { conversationId: id, senderId: { not: me.userId }, readAt: null },
       data: { readAt: new Date() },
@@ -56,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const items = hasMore ? messages.slice(0, limit) : messages;
 
     return NextResponse.json({
-      messages: items.map((m) => ({ ...m, fromMe: m.senderId === me.userId })).reverse(),
+      messages: items.map((m: typeof items[number]) => ({ ...m, fromMe: m.senderId === me.userId })).reverse(),
       nextCursor: hasMore ? items[items.length - 1].id : null,
       hasMore,
     });
@@ -66,7 +72,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// POST /api/dm/[id] — send a message
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const me = await authenticate(req);
@@ -83,8 +88,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const [message] = await prisma.$transaction([
       prisma.directMessage.create({
-        data: { conversationId: id, senderId: me.userId, content: parsed.data.content.trim() },
-        select: { id: true, content: true, senderId: true, readAt: true, createdAt: true },
+        data: {
+          conversationId: id,
+          senderId: me.userId,
+          content: parsed.data.content.trim(),
+          replyToId: parsed.data.replyToId ?? null,
+        },
+        select: msgSelect,
       }),
       prisma.conversation.update({ where: { id }, data: { updatedAt: new Date() } }),
     ]);
