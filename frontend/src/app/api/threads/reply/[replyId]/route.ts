@@ -27,8 +27,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ re
       },
     });
 
-    const reactionMap = new Map<string, number>();
-    for (const r of updated.reactions) reactionMap.set(r.emoji, (reactionMap.get(r.emoji) ?? 0) + 1);
+    const reactionMap = new Map<string, { emoji: string; count: number; userIds: string[] }>();
+    for (const r of updated.reactions) {
+      const existing = reactionMap.get(r.emoji);
+      if (existing) {
+        existing.count++;
+        existing.userIds.push(r.userId);
+      } else {
+        reactionMap.set(r.emoji, { emoji: r.emoji, count: 1, userIds: [r.userId] });
+      }
+    }
 
     return NextResponse.json({
       reply: {
@@ -37,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ re
         editedAt: updated.updatedAt,
         imageUrl: updated.imageUrl ?? null,
         user: updated.user,
-        reactions: Array.from(reactionMap.entries()).map(([emoji, count]) => ({ emoji, count })),
+        reactions: Array.from(reactionMap.values()),
         childCount: updated._count.childReplies,
       },
     });

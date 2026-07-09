@@ -20,9 +20,15 @@ function formatReply(reply: {
   reactions: { emoji: string; userId: string }[];
   _count?: { childReplies: number };
 }) {
-  const reactionMap = new Map<string, number>();
+  const reactionMap = new Map<string, { emoji: string; count: number; userIds: string[] }>();
   for (const r of reply.reactions) {
-    reactionMap.set(r.emoji, (reactionMap.get(r.emoji) ?? 0) + 1);
+    const existing = reactionMap.get(r.emoji);
+    if (existing) {
+      existing.count++;
+      existing.userIds.push(r.userId);
+    } else {
+      reactionMap.set(r.emoji, { emoji: r.emoji, count: 1, userIds: [r.userId] });
+    }
   }
 
   return {
@@ -34,7 +40,7 @@ function formatReply(reply: {
     depth: reply.depth,
     createdAt: reply.createdAt,
     user: reply.user,
-    reactions: Array.from(reactionMap.entries()).map(([emoji, count]) => ({ emoji, count })),
+    reactions: Array.from(reactionMap.values()),
     childCount: reply._count?.childReplies ?? 0,
   };
 }

@@ -98,6 +98,87 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showReactPicker, setShowReactPicker] = useState(false);
+  const [reacting, setReacting] = useState(false);
+
+  const handleReaction = async (emoji: string) => {
+    if (!accessToken || !me) return;
+    setReacting(true);
+    setShowReactPicker(false);
+    try {
+      const res = await api.post<{ action: string }>(
+        `/reactions/replies/${reply.id}`,
+        { emoji },
+        accessToken
+      );
+
+      const updateReplies = (oldReplies: ThreadReply[]): ThreadReply[] => {
+        return oldReplies.map((r) => {
+          if (r.id === reply.id) {
+            const reactions = [...r.reactions];
+            const idx = reactions.findIndex((rx) => rx.emoji === emoji);
+            if (res.action === 'added') {
+              if (idx >= 0) {
+                reactions[idx] = {
+                  ...reactions[idx],
+                  count: reactions[idx].count + 1,
+                  userIds: [...(reactions[idx].userIds ?? []), me.id],
+                };
+              } else {
+                reactions.push({ emoji, count: 1, userIds: [me.id] });
+              }
+            } else if (idx >= 0) {
+              reactions[idx] = {
+                ...reactions[idx],
+                count: reactions[idx].count - 1,
+                userIds: (reactions[idx].userIds ?? []).filter((uid) => uid !== me.id),
+              };
+              if (reactions[idx].count <= 0) {
+                reactions.splice(idx, 1);
+              }
+            }
+            return { ...r, reactions };
+          }
+          return r;
+        });
+      };
+
+      if (reply.parentReplyId === null) {
+        queryClient.setQueryData(
+          ['thread', postId],
+          (old: { pages: ThreadRepliesResponse[]; pageParams: unknown[] } | undefined) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                replies: updateReplies(page.replies),
+              })),
+            };
+          }
+        );
+      } else {
+        queryClient.setQueryData(
+          ['thread-children', postId, reply.parentReplyId],
+          (old: { pages: ThreadRepliesResponse[]; pageParams: unknown[] } | undefined) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                replies: updateReplies(page.replies),
+              })),
+            };
+          }
+        );
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setReacting(false);
+    }
+  };
+
   const [viewerOpen, setViewerOpen] = useState(false);
 
   const setImage = useCallback((file: File) => {
@@ -309,24 +390,54 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
           )}
 
           {reply.reactions.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
+            <div className="mt-2 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
               {reply.reactions.map((r) => (
-                <span key={r.emoji} className="rounded-full border border-border px-2 py-0.5 text-xs">
-                  {r.emoji} {r.count}
-                </span>
+                <button
+                  key={r.emoji} type="button"
+                  onClick={() => handleReaction(r.emoji)}
+                  disabled={reacting || !accessToken}
+                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                    r.userIds?.includes(me?.id ?? '') ? 'border-twitter-blue bg-twitter-blue/20' : 'border-border hover:bg-border/50'
+                  }`}
+                >
+                  <span>{r.emoji}</span>
+                  <span className="text-xs">{r.count}</span>
+                </button>
               ))}
             </div>
           )}
 
-          {depth < 4 && accessToken && (
-            <button
-              type="button"
-              onClick={() => setShowReply(!showReply)}
-              className="mt-1 text-sm text-twitter-blue hover:underline"
-            >
-              Reply
-            </button>
-          )}
+          <div className="mt-2 flex items-center gap-3">
+            {depth < 4 && accessToken && (
+              <button
+                type="button"
+                onClick={() => setShowReply(!showReply)}
+                className="text-sm text-twitter-blue hover:underline"
+              >
+                Reply
+              </button>
+            )}
+
+            {accessToken && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowReactPicker(!showReactPicker)}
+                  disabled={reacting}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-twitter-blue"
+                  aria-label="React with emoji"
+                >
+                  <Smile className="h-3.5 w-3.5" />
+                  <span>React</span>
+                </button>
+                <EmojiPickerPopover
+                  open={showReactPicker}
+                  onClose={() => setShowReactPicker(false)}
+                  onSelect={handleReaction}
+                />
+              </div>
+            )}
+          </div>
 
           {showReply && (
             <div className="mt-2 rounded-2xl border border-border bg-card/30 p-3 space-y-2">

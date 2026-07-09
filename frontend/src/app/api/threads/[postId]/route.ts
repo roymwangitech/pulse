@@ -12,14 +12,22 @@ function formatReply(reply: {
   reactions: { emoji: string; userId: string }[];
   _count?: { childReplies: number };
 }) {
-  const reactionMap = new Map<string, number>();
-  for (const r of reply.reactions) reactionMap.set(r.emoji, (reactionMap.get(r.emoji) ?? 0) + 1);
+  const reactionMap = new Map<string, { emoji: string; count: number; userIds: string[] }>();
+  for (const r of reply.reactions) {
+    const existing = reactionMap.get(r.emoji);
+    if (existing) {
+      existing.count++;
+      existing.userIds.push(r.userId);
+    } else {
+      reactionMap.set(r.emoji, { emoji: r.emoji, count: 1, userIds: [r.userId] });
+    }
+  }
   return {
     id: reply.id, postId: reply.postId, parentReplyId: reply.parentReplyId,
     content: reply.content, depth: reply.depth, createdAt: reply.createdAt,
     imageUrl: reply.imageUrl ?? null,
     user: reply.user,
-    reactions: Array.from(reactionMap.entries()).map(([emoji, count]) => ({ emoji, count })),
+    reactions: Array.from(reactionMap.values()),
     childCount: reply._count?.childReplies ?? 0,
   };
 }
