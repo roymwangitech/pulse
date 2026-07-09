@@ -61,6 +61,7 @@ model Post {
   caption    String
   imageUrl   String?
   searchText String?
+  pinned     Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -72,6 +73,7 @@ model Post {
   @@index([userId])
   @@index([createdAt(sort: Desc)])
   @@index([searchText])
+  @@index([pinned])
 }
 
 model ThreadReply {

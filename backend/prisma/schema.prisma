@@ -34,6 +34,9 @@ model User {
   reactions      Reaction[]
   replyReactions ReplyReaction[]
   refreshTokens  RefreshToken[]
+  conversationsA Conversation[]  @relation("ConvUserA")
+  conversationsB Conversation[]  @relation("ConvUserB")
+  sentMessages   DirectMessage[] @relation("MsgSender")
 
   @@index([username])
   @@index([createdAt])
@@ -58,6 +61,7 @@ model Post {
   caption    String
   imageUrl   String?
   searchText String?
+  pinned     Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -69,6 +73,7 @@ model Post {
   @@index([userId])
   @@index([createdAt(sort: Desc)])
   @@index([searchText])
+  @@index([pinned])
 }
 
 model ThreadReply {
@@ -140,4 +145,43 @@ model PostHashtag {
 
   @@id([postId, hashtagId])
   @@index([hashtagId])
+}
+
+// Direct messaging — space-efficient design
+model Conversation {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userA    User            @relation("ConvUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User            @relation("ConvUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages DirectMessage[]
+
+  // Ensure only one conversation per pair (userAId < userBId enforced in app logic)
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@index([updatedAt(sort: Desc)])
+}
+
+model DirectMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String   @db.VarChar(3000)
+  replyToId      String?
+  readAt         DateTime?
+  deletedBySender   Boolean @default(false)
+  deletedByReceiver Boolean @default(false)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User          @relation("MsgSender", fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo      DirectMessage? @relation("MsgReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      DirectMessage[] @relation("MsgReply")
+
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([senderId])
 }

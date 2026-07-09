@@ -55,7 +55,7 @@ router.get('/:username/posts', optionalAuth, async (req, res) => {
     where: { userId: user.id },
     take: limit + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
     include: postInclude,
   });
 

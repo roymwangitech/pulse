@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
     const posts = await prisma.post.findMany({
       where: { userId: user.id }, take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      orderBy: { createdAt: 'desc' }, include: postInclude,
+      orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }], include: postInclude,
     });
 
     const hasMore = posts.length > limit;

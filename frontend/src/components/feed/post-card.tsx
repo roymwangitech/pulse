@@ -4,7 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { MessageCircle, Trash2, Smile, Pencil, Check, X } from 'lucide-react';
+import { MessageCircle, Trash2, Smile, Pencil, Check, X, Pin } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
@@ -55,6 +56,34 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
+
+  const queryClient = useQueryClient();
+  const [pinning, setPinning] = useState(false);
+
+  const handlePin = async () => {
+    if (!accessToken) return;
+    setPinning(true);
+    try {
+      const res = await api.post<{ action: string; post: Post }>(`/posts/${post.id}/pin`, {}, accessToken);
+      if (res.action === 'pinned') {
+        const updatedPosts = useFeedStore.getState().posts.map((p) => {
+          if (p.user.id === post.user.id) {
+            return { ...p, pinned: p.id === post.id };
+          }
+          return p;
+        });
+        useFeedStore.getState().setPosts(updatedPosts);
+      } else {
+        updatePost(post.id, { pinned: false });
+      }
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPinning(false);
+    }
+  };
 
   const isOwner = user?.id === post.user.id;
   const isDetail = variant === 'detail';
@@ -125,6 +154,12 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
       className={`border-b border-border p-3 transition-colors sm:p-4 ${isDetail ? '' : 'cursor-pointer hover:bg-card/50'}`}
       onClick={isDetail ? undefined : openThread}
     >
+      {post.pinned && (
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-1 ml-[34px] sm:ml-[44px]">
+          <Pin className="h-3.5 w-3.5 fill-muted-foreground" />
+          <span>Pinned Post</span>
+        </div>
+      )}
       <div className="flex gap-2 sm:gap-3">
         <Link href={`/profile/${post.user.username}`} className="shrink-0" onClick={(e) => e.stopPropagation()}>
           <Avatar src={post.user.avatarUrl} alt={post.user.username} size="sm" />
@@ -144,6 +179,16 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
             )}
             {isOwner && !editing && (
               <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 ${post.pinned ? 'text-twitter-blue' : 'text-muted-foreground hover:text-twitter-blue'}`}
+                  onClick={handlePin}
+                  disabled={pinning}
+                  aria-label={post.pinned ? 'Unpin post' : 'Pin post'}
+                >
+                  <Pin className={`h-3.5 w-3.5 ${post.pinned ? 'fill-current' : ''}`} />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditCaption(post.caption); setEditing(true); }} aria-label="Edit post">
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>

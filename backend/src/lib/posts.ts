@@ -16,6 +16,7 @@ export function formatPost(post: {
   id: string;
   caption: string;
   imageUrl: string | null;
+  pinned: boolean;
   createdAt: Date;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string };
   hashtags: { hashtag: { name: string } }[];
@@ -26,6 +27,7 @@ export function formatPost(post: {
     id: post.id,
     caption: post.caption,
     imageUrl: post.imageUrl ?? null,
+    pinned: post.pinned,
     createdAt: post.createdAt,
     user: post.user,
     hashtags: post.hashtags.map((ph) => ph.hashtag.name),

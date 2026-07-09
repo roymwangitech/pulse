@@ -20,6 +20,7 @@ export interface Post {
   id: string;
   caption: string;
   imageUrl: string | null;
+  pinned: boolean;
   createdAt: string;
   editedAt: string | null;
   user: Pick<User, 'id' | 'username' | 'displayName' | 'avatarUrl'>;

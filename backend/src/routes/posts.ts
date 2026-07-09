@@ -98,6 +98,48 @@ router.post('/', authenticate, validateBody(createPostSchema), async (req: AuthR
   res.status(201).json({ post: formatted });
 });
 
+router.post('/:id/pin', authenticate, async (req: AuthRequest, res: Response) => {
+  const id = paramId(req.params.id);
+  const post = await prisma.post.findUnique({ where: { id }, include: postInclude });
+  if (!post) {
+    res.status(404).json({ error: 'Post not found' });
+    return;
+  }
+  if (post.userId !== req.user!.userId) {
+    res.status(403).json({ error: 'Not authorized' });
+    return;
+  }
+
+  let action: string;
+  let updatedPost;
+
+  if (post.pinned) {
+    updatedPost = await prisma.post.update({
+      where: { id },
+      data: { pinned: false },
+      include: postInclude,
+    });
+    action = 'unpinned';
+  } else {
+    await prisma.post.updateMany({
+      where: { userId: req.user!.userId, pinned: true },
+      data: { pinned: false },
+    });
+    updatedPost = await prisma.post.update({
+      where: { id },
+      data: { pinned: true },
+      include: postInclude,
+    });
+    action = 'pinned';
+  }
+
+  const formatted = formatPost(updatedPost);
+  const io = req.app.get('io');
+  io?.emit('post:updated', formatted);
+
+  res.json({ action, post: formatted });
+});
+
 router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   const id = paramId(req.params.id);
   const post = await prisma.post.findUnique({ where: { id } });
