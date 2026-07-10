@@ -29,6 +29,7 @@ async function uploadFile(file: File, token: string): Promise<string> {
 
 export function ComposePost() {
   const accessToken = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const prependPost = useFeedStore((s) => s.prependPost);
   const [caption, setCaption] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
@@ -63,6 +64,14 @@ export function ComposePost() {
     return (
       <div className="border-b border-border p-4 text-center text-muted-foreground">
         <a href="/login" className="text-twitter-blue hover:underline">Sign in</a> to post
+      </div>
+    );
+  }
+
+  if (user?.postingBlocked) {
+    return (
+      <div className="border-b border-border p-4 text-center text-sm text-muted-foreground">
+        Your posting privileges have been suspended by an admin.
       </div>
     );
   }

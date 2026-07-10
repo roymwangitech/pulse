@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { MessageCircle, Users, Search } from 'lucide-react';
+import { MessageCircle, Users, Search, RefreshCw } from 'lucide-react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
 import { Avatar } from '@/components/ui/avatar';
 import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth';
 import { formatRelativeTime } from '@/lib/utils';
 import type { DMConversation, DMUser } from '@/types';
@@ -21,11 +22,10 @@ export default function MessagesPage() {
   const [tab, setTab] = useState<Tab>('chats');
   const [search, setSearch] = useState('');
 
-  const { data: convData, isLoading: loadingConvs } = useQuery({
+  const { data: convData, isLoading: loadingConvs, refetch: refetchConvs } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => api.get<{ conversations: DMConversation[] }>('/dm', accessToken ?? undefined),
     enabled: !!accessToken,
-    refetchInterval: 30_000,
   });
 
   const { data: usersData, isLoading: loadingUsers } = useQuery({
@@ -91,13 +91,20 @@ export default function MessagesPage() {
       {/* Chats tab */}
       {tab === 'chats' && (
         <>
-          {loadingConvs && (
+          <div className="flex items-center justify-between">
+            {loadingConvs && (
             <div className="space-y-px p-2">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-16 animate-pulse rounded-xl bg-card" />
               ))}
             </div>
-          )}
+            )}
+            <div className="p-2">
+              <Button size="sm" variant="ghost" onClick={() => refetchConvs()} aria-label="Refresh conversations">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
           {!loadingConvs && !convData?.conversations.length && (
             <div className="flex flex-col items-center gap-3 p-12 text-center text-muted-foreground">

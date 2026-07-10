@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useRef, useCallback } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ArrowLeft, Send, Smile, CornerUpLeft, X } from 'lucide-react';
+import { ArrowLeft, Send, Smile, CornerUpLeft, X, RefreshCw } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
@@ -50,7 +50,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
   const isFirstLoad = useRef(true);
   const prevMessageCount = useRef(0);
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } = useInfiniteQuery({
     queryKey: ['dm-messages', id],
     queryFn: ({ pageParam }) =>
       api.get<MessagesResponse>(
@@ -60,8 +60,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),
     enabled: !!accessToken,
-    refetchInterval: 5_000,
-    refetchIntervalInBackground: false,
+    // Manual refresh — user can click to fetch new messages
   });
 
   const convCache = queryClient.getQueryData<{ conversations: DMConversation[] }>(['conversations']);
@@ -163,6 +162,11 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
         ) : (
           <p className="font-semibold">Conversation</p>
         )}
+        <div className="shrink-0">
+          <Button variant="ghost" size="icon" onClick={() => refetch()} aria-label="Refresh messages">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Messages */}

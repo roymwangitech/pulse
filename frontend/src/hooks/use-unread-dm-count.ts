@@ -9,8 +9,6 @@ export function useUnreadDmCount() {
     queryKey: ['conversations'],
     queryFn: () => api.get<{ conversations: DMConversation[] }>('/dm', accessToken ?? undefined),
     enabled: !!accessToken,
-    refetchInterval: 30_000,
-    refetchIntervalInBackground: false,
   });
   return data?.conversations.reduce((sum, c) => sum + c.unread, 0) ?? 0;
 }

@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     const { caption: rawCaption, imageUrl } = parsed.data;
     const caption = rawCaption.trim();
     const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+    if (dbUser?.postingBlocked) return NextResponse.json({ error: 'You have been blocked from posting' }, { status: 403 });
     const searchText = buildSearchText(caption, dbUser?.username);
 
     const post = await prisma.post.create({

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         skip, take: limit, orderBy: { createdAt: 'desc' },
-        select: { id: true, username: true, displayName: true, avatarUrl: true, role: true, status: true, createdAt: true, _count: { select: { posts: true } } },
+        select: { id: true, username: true, displayName: true, avatarUrl: true, role: true, status: true, postingBlocked: true, createdAt: true, _count: { select: { posts: true } } },
       }),
       prisma.user.count(),
     ]);

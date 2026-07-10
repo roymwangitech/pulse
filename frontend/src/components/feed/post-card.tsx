@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { MessageCircle, Trash2, Smile, Pencil, Check, X, Pin } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
@@ -73,9 +73,36 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
           return p;
         });
         useFeedStore.getState().setPosts(updatedPosts);
+        // also update react-query caches that contain feed pages
+        queryClient.getQueriesData({ queryKey: ['feed'] }).forEach(([key]) => {
+          queryClient.setQueryData(key as QueryKey, (old: { pages?: { posts: Post[] }[] } | undefined) => {
+            if (!old || !old.pages) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                posts: page.posts.map((p) => (p.user.id === post.user.id ? { ...p, pinned: p.id === post.id } : p)),
+              })),
+            } as unknown as typeof old;
+          });
+        });
       } else {
         updatePost(post.id, { pinned: false });
+        queryClient.getQueriesData({ queryKey: ['feed'] }).forEach(([key]) => {
+          queryClient.setQueryData(key as QueryKey, (old: { pages?: { posts: Post[] }[] } | undefined) => {
+            if (!old || !old.pages) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                posts: page.posts.map((p) => (p.id === post.id ? { ...p, pinned: false } : p)),
+              })),
+            } as unknown as typeof old;
+          });
+        });
       }
+      // update single-post cache if present
+      queryClient.setQueryData(['post', post.id], (old: { post?: Post } | undefined) => (old ? { post: { ...old.post!, pinned: res.action === 'pinned' } } : old));
       queryClient.invalidateQueries({ queryKey: ['user-posts'] });
       queryClient.invalidateQueries({ queryKey: ['feed'] });
     } catch (err) {
@@ -86,6 +113,7 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
   };
 
   const isOwner = user?.id === post.user.id;
+  const isAdmin = user?.role === 'ADMIN';
   const isDetail = variant === 'detail';
 
   const handleReaction = async (emoji: string) => {
@@ -107,6 +135,20 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
         if (reactions[idx].count <= 0) reactions.splice(idx, 1);
       }
       updatePost(post.id, { reactions });
+      // update react-query feed pages and single post cache so UI updates immediately
+      queryClient.getQueriesData({ queryKey: ['feed'] }).forEach(([key]) => {
+        queryClient.setQueryData(key as QueryKey, (old: { pages?: { posts: Post[] }[] } | undefined) => {
+          if (!old || !old.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              posts: page.posts.map((p) => (p.id === post.id ? { ...p, reactions } : p)),
+            })),
+          } as unknown as typeof old;
+        });
+      });
+      queryClient.setQueryData(['post', post.id], (old: { post?: Post } | undefined) => (old ? { post: { ...old.post!, reactions } } : old));
     } finally {
       setReacting(false);
     }
@@ -116,6 +158,37 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
     if (!accessToken) return;
     await api.delete(`/posts/${post.id}`, accessToken);
     removePost(post.id);
+    queryClient.getQueriesData({ queryKey: ['feed'] }).forEach(([key]) => {
+      queryClient.setQueryData(key as QueryKey, (old: { pages?: { posts: Post[] }[] } | undefined) => {
+        if (!old || !old.pages) return old;
+        return { ...old, pages: old.pages.map((page) => ({ ...page, posts: page.posts.filter((p) => p.id !== post.id) })) } as unknown as typeof old;
+      });
+    });
+    queryClient.removeQueries({ queryKey: ['post', post.id] });
+    queryClient.invalidateQueries({ queryKey: ['user-posts'] });
+  };
+
+  const handleAdminPin = async () => {
+    if (!accessToken) return;
+    setPinning(true);
+    try {
+      const res = await api.post<{ action: string; post: Post }>(`/admin/posts/${post.id}/pin`, {}, accessToken);
+      const pinned = res.action === 'pinned';
+      const updateFeedCache = (posts: Post[]) =>
+        posts.map((p) => (p.user.id === post.user.id ? { ...p, pinned: pinned ? p.id === post.id : p.id === post.id ? false : p.pinned } : p));
+      updatePost(post.id, { pinned });
+      queryClient.getQueriesData({ queryKey: ['feed'] }).forEach(([key]) => {
+        queryClient.setQueryData(key as QueryKey, (old: { pages?: { posts: Post[] }[] } | undefined) => {
+          if (!old || !old.pages) return old;
+          return { ...old, pages: old.pages.map((page) => ({ ...page, posts: updateFeedCache(page.posts) })) } as unknown as typeof old;
+        });
+      });
+      queryClient.setQueryData(['post', post.id], (old: { post?: Post } | undefined) => (old ? { post: { ...old.post!, pinned } } : old));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPinning(false);
+    }
   };
 
   const handleEditSave = async () => {
@@ -128,6 +201,20 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
     try {
       const res = await api.patch<{ post: Post }>(`/posts/${post.id}`, { caption: editCaption.trim() }, accessToken);
       updatePost(post.id, { caption: res.post.caption, editedAt: res.post.editedAt, hashtags: res.post.hashtags });
+      // update react-query caches
+      queryClient.getQueriesData({ queryKey: ['feed'] }).forEach(([key]) => {
+        queryClient.setQueryData(key as QueryKey, (old: { pages?: { posts: Post[] }[] } | undefined) => {
+          if (!old || !old.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              posts: page.posts.map((p) => (p.id === post.id ? { ...p, caption: res.post.caption, editedAt: res.post.editedAt, hashtags: res.post.hashtags } : p)),
+            })),
+          } as unknown as typeof old;
+        });
+      });
+      queryClient.setQueryData(['post', post.id], (old: { post?: Post } | undefined) => (old ? { post: { ...old.post!, caption: res.post.caption, editedAt: res.post.editedAt, hashtags: res.post.hashtags } } : old));
       setEditing(false);
     } catch (err) {
       setEditError((err as Error).message);
@@ -177,21 +264,24 @@ export function PostCard({ post, variant = 'feed' }: PostCardProps) {
                 · edited
               </span>
             )}
-            {isOwner && !editing && (
+            {(isOwner || isAdmin) && !editing && (
               <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                {/* Pin button: owner pins own posts; admin can pin any post */}
                 <Button
                   variant="ghost"
                   size="icon"
                   className={`h-8 w-8 ${post.pinned ? 'text-twitter-blue' : 'text-muted-foreground hover:text-twitter-blue'}`}
-                  onClick={handlePin}
+                  onClick={isAdmin && !isOwner ? handleAdminPin : handlePin}
                   disabled={pinning}
                   aria-label={post.pinned ? 'Unpin post' : 'Pin post'}
                 >
                   <Pin className={`h-3.5 w-3.5 ${post.pinned ? 'fill-current' : ''}`} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditCaption(post.caption); setEditing(true); }} aria-label="Edit post">
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
+                {isOwner && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditCaption(post.caption); setEditing(true); }} aria-label="Edit post">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600" onClick={handleDelete} aria-label="Delete post">
                   <Trash2 className="h-4 w-4" />
                 </Button>

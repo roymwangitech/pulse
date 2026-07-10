@@ -17,7 +17,7 @@ interface FeedState {
 
 export const useFeedStore = create<FeedState>((set) => ({
   posts: [],
-  dateFilter: 'all',
+  dateFilter: 'today',
   customStartDate: '',
   customEndDate: '',
   prependPost: (post) =>

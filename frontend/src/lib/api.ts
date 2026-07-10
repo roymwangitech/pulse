@@ -6,9 +6,12 @@ interface FetchOptions extends RequestInit {
 }
 
 class ApiClient {
-  // In dev, NEXT_PUBLIC_API_URL=http://localhost:3000 (Next.js dev server)
-  // In production, empty = same-origin Vercel deployment, no proxy needed
-  private base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? '';
+  // In the browser, always use same-origin (all API routes live in this Next.js app).
+  // On the server (SSR), fall back to NEXT_PUBLIC_API_URL so absolute URLs work.
+  private get base(): string {
+    if (typeof window !== 'undefined') return '';
+    return process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? '';
+  }
 
   private headers(token?: string): HeadersInit {
     const h: HeadersInit = { 'Content-Type': 'application/json' };
@@ -37,7 +40,7 @@ class ApiClient {
         useAuthStore.getState().setRefreshToken(refreshToken);
         return this.fetch<T>(endpoint, { ...options, token: accessToken, _retried: true });
       }
-      // Refresh failed — session is truly expired, log out silently
+      // Refresh failed — log out silently
       useAuthStore.getState().logout();
       if (typeof window !== 'undefined') window.location.href = '/login';
       throw new Error('Session expired');

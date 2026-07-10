@@ -9,7 +9,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
       where: { username: username.toLowerCase() },
       select: {
         id: true, username: true, displayName: true, avatarUrl: true,
-        role: true, status: true, createdAt: true,
+        role: true, status: true, postingBlocked: true, createdAt: true,
         _count: { select: { posts: true, threadReplies: true } },
       },
     });

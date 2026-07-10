@@ -60,7 +60,7 @@ export async function validateRefreshToken(token: string): Promise<TokenPayload 
 
 export function sanitizeUser(user: {
   id: string; username: string; displayName: string | null;
-  avatarUrl: string; role: string; status: string; createdAt: Date;
+  avatarUrl: string; role: string; status: string; postingBlocked: boolean; createdAt: Date;
 }) {
   return {
     id: user.id,
@@ -69,6 +69,7 @@ export function sanitizeUser(user: {
     avatarUrl: user.avatarUrl,
     role: user.role,
     status: user.status,
+    postingBlocked: user.postingBlocked,
     createdAt: user.createdAt,
   };
 }

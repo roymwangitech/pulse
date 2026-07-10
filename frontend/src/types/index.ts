@@ -5,6 +5,7 @@ export interface User {
   avatarUrl: string;
   role: string;
   status: string;
+  postingBlocked: boolean;
   createdAt: string;
   postCount?: number;
   replyCount?: number;
