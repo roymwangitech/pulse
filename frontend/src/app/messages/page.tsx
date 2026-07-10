@@ -21,12 +21,19 @@ export default function MessagesPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('chats');
   const [search, setSearch] = useState('');
+  const [refreshed, setRefreshed] = useState(false);
 
-  const { data: convData, isLoading: loadingConvs, refetch: refetchConvs } = useQuery({
+  const { data: convData, isLoading: loadingConvs, isFetching: fetchingConvs, refetch: refetchConvs } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => api.get<{ conversations: DMConversation[] }>('/dm', accessToken ?? undefined),
     enabled: !!accessToken,
   });
+
+  const handleRefresh = async () => {
+    await refetchConvs();
+    setRefreshed(true);
+    setTimeout(() => setRefreshed(false), 1500);
+  };
 
   const { data: usersData, isLoading: loadingUsers } = useQuery({
     queryKey: ['dm-users', search],
@@ -91,20 +98,28 @@ export default function MessagesPage() {
       {/* Chats tab */}
       {tab === 'chats' && (
         <>
-          <div className="flex items-center justify-between">
-            {loadingConvs && (
+          <div className="flex items-center justify-between border-b border-border px-4 py-2">
+            <span className="text-sm text-muted-foreground">Conversations</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleRefresh}
+              disabled={fetchingConvs}
+              className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              aria-label="Refresh conversations"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${fetchingConvs ? 'animate-spin' : ''} ${refreshed ? 'text-twitter-blue' : ''}`} />
+              {fetchingConvs ? 'Refreshing…' : refreshed ? 'Updated' : 'Refresh'}
+            </Button>
+          </div>
+
+          {loadingConvs && (
             <div className="space-y-px p-2">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-16 animate-pulse rounded-xl bg-card" />
               ))}
             </div>
-            )}
-            <div className="p-2">
-              <Button size="sm" variant="ghost" onClick={() => refetchConvs()} aria-label="Refresh conversations">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          )}
 
           {!loadingConvs && !convData?.conversations.length && (
             <div className="flex flex-col items-center gap-3 p-12 text-center text-muted-foreground">

@@ -7,6 +7,7 @@ import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { useFeedStore } from '@/stores/feed';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import type { Post } from '@/types';
 
 const MAX_CHARS = 3000;
@@ -31,6 +32,7 @@ export function ComposePost() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const prependPost = useFeedStore((s) => s.prependPost);
+  const queryClient = useQueryClient();
   const [caption, setCaption] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -109,6 +111,17 @@ export function ComposePost() {
         accessToken
       );
       prependPost(res.post);
+      // Inject the new post at the top of every feed page cache so it appears
+      // instantly without a refetch round-trip
+      queryClient.getQueriesData<{ pages: { posts: Post[]; nextCursor: string | null; hasMore: boolean }[] }>({ queryKey: ['feed'] })
+        .forEach(([key]) => {
+          queryClient.setQueryData(key as QueryKey, (old: { pages: { posts: Post[]; nextCursor: string | null; hasMore: boolean }[]; pageParams: unknown[] } | undefined) => {
+            if (!old?.pages?.length) return old;
+            const pages = [...old.pages];
+            pages[0] = { ...pages[0], posts: [res.post, ...pages[0].posts] };
+            return { ...old, pages };
+          });
+        });
       setCaption('');
       clearImage();
       setShowEmoji(false);
