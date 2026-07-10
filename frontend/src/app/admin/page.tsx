@@ -122,7 +122,7 @@ export default function AdminPage() {
   const { data: postsData } = useQuery({
     queryKey: ['admin-posts', postPage],
     queryFn: () =>
-      api.get<{ posts: AdminPost[]; total: number; totalPages: number }>(
+      api.get<{ posts: AdminPost[]; total: number; page: number; totalPages: number }>(
         `/admin/posts?page=${postPage}`, accessToken!
       ),
     enabled: !!accessToken && user?.role === 'ADMIN',
