@@ -9,15 +9,23 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') ?? '1');
-    const limit = 20;
+    const q = searchParams.get('q')?.trim() ?? '';
+    const limit = 15;
     const skip = (page - 1) * limit;
+
+    const where = q
+      ? { OR: [{ username: { contains: q, mode: 'insensitive' as const } }, { displayName: { contains: q, mode: 'insensitive' as const } }] }
+      : {};
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
-        skip, take: limit, orderBy: { createdAt: 'desc' },
+        where,
+        skip,
+        take: limit,
+        orderBy: { username: 'asc' },
         select: { id: true, username: true, displayName: true, avatarUrl: true, role: true, status: true, postingBlocked: true, createdAt: true, _count: { select: { posts: true } } },
       }),
-      prisma.user.count(),
+      prisma.user.count({ where }),
     ]);
 
     return NextResponse.json({ users, total, page, totalPages: Math.ceil(total / limit) });

@@ -91,7 +91,8 @@ export async function authenticate(request: Request): Promise<TokenPayload> {
     if (!user || user.status === 'BANNED') {
       throw new Response(JSON.stringify({ error: 'Account suspended' }), { status: 403 });
     }
-    return payload;
+    // Always use the DB role so promotions/demotions take effect without re-login
+    return { ...payload, role: user.role };
   } catch (e) {
     if (e instanceof Response) throw e;
     throw new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401 });
