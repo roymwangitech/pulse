@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Compass, MessageSquare, Mail, User, MoreHorizontal, Settings, Shield, Sun, Moon, LogOut, LogIn } from 'lucide-react';
+import { Home, Compass, Mail, User, MoreHorizontal, Settings, Shield, Sun, Moon, LogOut, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
@@ -14,7 +14,6 @@ const mainNav = [
   { href: '/', label: 'Home', icon: Home, match: (p: string) => p === '/' },
   { href: '/explore', label: 'Explore', icon: Compass, match: (p: string) => p.startsWith('/explore') },
   { href: '/messages', label: 'Messages', icon: Mail, match: (p: string) => p.startsWith('/messages') },
-  { href: '/threads', label: 'Threads', icon: MessageSquare, match: (p: string) => p.startsWith('/threads') },
   { href: '/profile', label: 'Profile', icon: User, match: (p: string) => p.startsWith('/profile') },
 ];
 

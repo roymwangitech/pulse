@@ -6,18 +6,27 @@ interface AvatarProps {
   alt: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  priority?: boolean;
 }
 
 const sizes = { sm: 32, md: 40, lg: 56 };
 
-export function Avatar({ src, alt, size = 'md', className }: AvatarProps) {
+export function Avatar({ src, alt, size = 'md', className, priority = false }: AvatarProps) {
   const px = sizes[size];
   return (
     <div
       className={cn('relative shrink-0 overflow-hidden rounded-full bg-border', className)}
       style={{ width: px, height: px }}
     >
-      <Image src={src} alt={alt} width={px} height={px} className="object-cover" unoptimized />
+      <Image
+        src={src}
+        alt={alt}
+        width={px}
+        height={px}
+        className="object-cover"
+        priority={priority}
+        sizes={`${px}px`}
+      />
     </div>
   );
 }

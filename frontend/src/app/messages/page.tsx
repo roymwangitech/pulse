@@ -193,7 +193,9 @@ export default function MessagesPage() {
               disabled={startConv.isPending}
               className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors hover:bg-card/50 active:bg-card disabled:opacity-60"
             >
-              <Avatar src={u.avatarUrl} alt={u.username} size="md" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-twitter-blue/20 text-sm font-semibold text-twitter-blue">
+                {(u.displayName ?? u.username).charAt(0).toUpperCase()}
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{u.displayName ?? u.username}</p>
                 <p className="truncate text-xs text-muted-foreground">@{u.username}</p>

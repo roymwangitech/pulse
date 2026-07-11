@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, MessageSquare, Mail, User, Settings, Sun, Moon, Zap, Shield } from 'lucide-react';
+import { Home, Compass, Mail, User, Settings, Sun, Moon, Zap, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
@@ -13,7 +13,6 @@ import { useUnreadDmCount } from '@/hooks/use-unread-dm-count';
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/explore', label: 'Explore', icon: Compass },
-  { href: '/threads', label: 'Threads', icon: MessageSquare },
   { href: '/messages', label: 'Messages', icon: Mail },
   { href: '/profile', label: 'Profile', icon: User },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -91,7 +90,7 @@ export function LeftSidebar() {
             className="flex items-center justify-center gap-3 rounded-full p-2 hover:bg-border/50 lg:justify-start lg:p-3"
             title={user.displayName ?? user.username}
           >
-            <Avatar src={user.avatarUrl} alt={user.username} size="sm" />
+            <Avatar src={user.avatarUrl} alt={user.username} size="sm" priority />
             <div className="hidden min-w-0 lg:block">
               <p className="truncate text-sm font-semibold">{user.displayName ?? user.username}</p>
               <p className="truncate text-xs text-muted-foreground">@{user.username}</p>
