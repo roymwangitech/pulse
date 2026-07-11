@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { authenticate } from '@/lib/auth-server';
 import { formatPost, postInclude, buildSearchText, extractHashtags } from '@/lib/posts-db';
+import { getCache, setCache } from '@/lib/redis';
+import { invalidatePostCache, invalidateUserCache, invalidateSearchCache } from '@/lib/cache';
 
 const editSchema = z.object({ caption: z.string().min(1).max(500) });
 
@@ -19,9 +21,16 @@ async function syncHashtags(postId: string, caption: string) {
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const cacheKey = `post:${id}`;
+    const cached = await getCache<unknown>(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     const post = await prisma.post.findUnique({ where: { id }, include: postInclude });
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
-    return NextResponse.json({ post: formatPost(post) });
+
+    const result = { post: formatPost(post) };
+    await setCache(cacheKey, result, 600);
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -31,12 +40,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const user = await authenticate(req);
     const { id } = await params;
-    const post = await prisma.post.findUnique({ where: { id } });
+    const post = await prisma.post.findUnique({
+      where: { id },
+      include: { user: { select: { username: true } } }
+    });
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     if (post.userId !== user.userId && user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
     await prisma.post.delete({ where: { id } });
+
+    await invalidatePostCache(id);
+    await invalidateUserCache(post.user.username);
+    await invalidateSearchCache();
+
     return NextResponse.json({ message: 'Post deleted' });
   } catch (e) {
     if (e instanceof Response) return e;
@@ -66,6 +83,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
 
     await syncHashtags(id, caption);
+
+    await invalidatePostCache(id);
+    await invalidateUserCache(user.username);
+    await invalidateSearchCache();
+
     return NextResponse.json({ post: formatPost(updated) });
   } catch (e) {
     if (e instanceof Response) return e;

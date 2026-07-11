@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { useFeedStore } from '@/stores/feed';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { compressImage } from '@/lib/image';
 import type { Post } from '@/types';
 
 const MAX_CHARS = 3000;
@@ -101,7 +102,8 @@ export function ComposePost() {
       let imageUrl: string | undefined;
       if (imageFile) {
         setUploading(true);
-        imageUrl = await uploadFile(imageFile, accessToken);
+        const compressed = await compressImage(imageFile);
+        imageUrl = await uploadFile(compressed, accessToken);
         setUploading(false);
       }
 

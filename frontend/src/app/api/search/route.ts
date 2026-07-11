@@ -30,14 +30,21 @@ export async function GET(req: NextRequest) {
       results.hashtags = await prisma.hashtag.findMany({
         where: { name: { contains: tag, mode: 'insensitive' } },
         take: limit,
-        include: { _count: { select: { posts: true } } },
+        select: {
+          name: true,
+          _count: { select: { posts: true } },
+        },
       });
     }
     if (type === 'all' || type === 'captions') {
       results.posts = await prisma.post.findMany({
         where: { OR: [{ searchText: { contains: query, mode: 'insensitive' } }, { caption: { contains: query, mode: 'insensitive' } }] },
         take: limit, orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } }, _count: { select: { replies: true } } },
+        select: {
+          id: true,
+          caption: true,
+          user: { select: { username: true } },
+        },
       });
     }
 

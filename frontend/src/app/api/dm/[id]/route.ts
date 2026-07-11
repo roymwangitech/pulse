@@ -36,8 +36,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
-    pruneOldMessages(id).catch(() => {});
-
     const { searchParams } = new URL(req.url);
     const cursor = searchParams.get('cursor') ?? undefined;
     const limit = 30;
@@ -84,6 +82,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!conv) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     if (conv.userAId !== me.userId && conv.userBId !== me.userId) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    }
+
+    // Probabilistically prune old messages asynchronously
+    if (Math.random() < 0.05) {
+      pruneOldMessages(id).catch(() => {});
     }
 
     const [message] = await prisma.$transaction([

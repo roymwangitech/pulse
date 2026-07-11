@@ -12,6 +12,7 @@ import { PostCard } from '@/components/feed/post-card';
 import { EmojiPickerPopover } from '@/components/ui/emoji-picker-popover';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { formatRelativeTime, getProxiedUrl } from '@/lib/utils';
+import { compressImage } from '@/lib/image';
 import type { Post, ThreadReply } from '@/types';
 
 const REPLIES_PAGE_SIZE = 15;
@@ -213,8 +214,6 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
       initialPageParam: undefined as string | undefined,
       getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
       enabled: childTotal > 0,
-      refetchInterval: 20_000,
-      refetchIntervalInBackground: false,
     });
 
   const children = childData?.pages.flatMap((p) => p.replies) ?? [];
@@ -228,7 +227,8 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
       let imageUrl: string | undefined;
       if (imageFile) {
         setUploading(true);
-        imageUrl = await uploadFile(imageFile, accessToken);
+        const compressed = await compressImage(imageFile);
+        imageUrl = await uploadFile(compressed, accessToken);
         setUploading(false);
       }
 
@@ -582,8 +582,6 @@ export function ThreadView({ postId }: { postId: string }) {
   const { data: postData } = useQuery({
     queryKey: ['post', postId],
     queryFn: () => api.get<{ post: Post }>(`/posts/${postId}`),
-    refetchInterval: 20_000,
-    refetchIntervalInBackground: false,
   });
 
   const { data: threadData, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: threadLoading } =
@@ -592,8 +590,6 @@ export function ThreadView({ postId }: { postId: string }) {
       queryFn: ({ pageParam }) => api.get<ThreadRepliesResponse>(buildThreadUrl(postId, undefined, pageParam as string | undefined)),
       initialPageParam: undefined as string | undefined,
       getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
-      refetchInterval: 15_000,
-      refetchIntervalInBackground: false,
     });
 
   const topLevelReplies = threadData?.pages.flatMap((p) => p.replies) ?? [];
@@ -609,7 +605,8 @@ export function ThreadView({ postId }: { postId: string }) {
       let imageUrl: string | undefined;
       if (imageFile) {
         setUploading(true);
-        imageUrl = await uploadFile(imageFile, accessToken);
+        const compressed = await compressImage(imageFile);
+        imageUrl = await uploadFile(compressed, accessToken);
         setUploading(false);
       }
 

@@ -23,28 +23,33 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Count unread per conversation
-    const unreadCounts = await Promise.all(
-      conversations.map((c) =>
-        prisma.directMessage.count({
-          where: {
-            conversationId: c.id,
-            senderId: { not: me.userId },
-            readAt: null,
-            deletedByReceiver: false,
-          },
-        })
-      )
-    );
+    // Count unread per conversation in a single query (Group By) to eliminate N+1 problem
+    const unreadCountsGrouped = await prisma.directMessage.groupBy({
+      by: ['conversationId'],
+      where: {
+        conversationId: { in: conversations.map((c) => c.id) },
+        senderId: { not: me.userId },
+        readAt: null,
+        deletedByReceiver: false,
+      },
+      _count: {
+        id: true,
+      },
+    });
 
-    const result = conversations.map((c, i) => {
+    const unreadMap = new Map<string, number>();
+    for (const group of unreadCountsGrouped) {
+      unreadMap.set(group.conversationId, group._count.id);
+    }
+
+    const result = conversations.map((c) => {
       const other = c.userAId === me.userId ? c.userB : c.userA;
       const last = c.messages[0] ?? null;
       return {
         id: c.id,
         other,
         lastMessage: last ? { content: last.content, createdAt: last.createdAt, fromMe: last.senderId === me.userId } : null,
-        unread: unreadCounts[i],
+        unread: unreadMap.get(c.id) ?? 0,
         updatedAt: c.updatedAt,
       };
     });

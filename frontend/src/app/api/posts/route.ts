@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { authenticate, optionalAuth } from '@/lib/auth-server';
 import { formatPost, postInclude, buildSearchText, extractHashtags, getDateRangeFilter } from '@/lib/posts-db';
+import { getCache, setCache } from '@/lib/redis';
+import { invalidateFeedCache, invalidateUserCache, invalidateSearchCache } from '@/lib/cache';
 
 const feedSchema = z.object({
   cursor: z.string().optional(),
@@ -37,6 +39,10 @@ export async function GET(req: NextRequest) {
     if (!parsed.success) return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
 
     const { cursor, limit, filter, startDate, endDate } = parsed.data;
+    const cacheKey = `feed:posts:${cursor ?? ''}:${limit}:${filter}:${startDate ?? ''}:${endDate ?? ''}`;
+    const cached = await getCache<unknown>(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     const dateFilter = filter !== 'all' ? getDateRangeFilter(filter, startDate, endDate) : {};
 
     const posts = await prisma.post.findMany({
@@ -50,11 +56,14 @@ export async function GET(req: NextRequest) {
     const hasMore = posts.length > limit;
     const items = hasMore ? posts.slice(0, limit) : posts;
 
-    return NextResponse.json({
+    const result = {
       posts: items.map(formatPost),
       nextCursor: hasMore ? items[items.length - 1].id : null,
       hasMore,
-    });
+    };
+
+    await setCache(cacheKey, result, 300);
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -79,6 +88,13 @@ export async function POST(req: NextRequest) {
     });
 
     await syncHashtags(post.id, caption);
+
+    await invalidateFeedCache();
+    if (dbUser?.username) {
+      await invalidateUserCache(dbUser.username);
+    }
+    await invalidateSearchCache();
+
     return NextResponse.json({ post: formatPost(post) }, { status: 201 });
   } catch (e) {
     if (e instanceof Response) return e;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { authenticate } from '@/lib/auth-server';
 import { formatPost, postInclude } from '@/lib/posts-db';
+import { invalidatePostCache, invalidateUserCache } from '@/lib/cache';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
       action = 'pinned';
     }
+
+    await invalidatePostCache(id);
+    await invalidateUserCache(user.username);
 
     return NextResponse.json({ action, post: formatPost(updatedPost) });
   } catch (e) {

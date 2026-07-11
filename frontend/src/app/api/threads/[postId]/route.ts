@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { authenticate } from '@/lib/auth-server';
 import { calculateReplyDepth } from '@/lib/posts-db';
+import { getCache, setCache } from '@/lib/redis';
+import { invalidateThreadRepliesCache, invalidatePostCache, invalidateFeedCache, invalidateUserCache, invalidateSearchCache } from '@/lib/cache';
 
 function formatReply(reply: {
   id: string; postId: string; parentReplyId: string | null;
@@ -34,7 +36,7 @@ function formatReply(reply: {
 
 const replyInclude = {
   user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-  reactions: true,
+  reactions: { select: { emoji: true, userId: true } },
   _count: { select: { childReplies: true } },
 };
 
@@ -61,6 +63,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ post
     if (!parsed.success) return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
 
     const { cursor, limit, parentReplyId } = parsed.data;
+    const cacheKey = `thread:replies:${postId}:${parentReplyId ?? ''}:${cursor ?? ''}:${limit}`;
+    const cached = await getCache<unknown>(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     const where = { postId, parentReplyId: parentReplyId ?? null };
 
     const [replies, total] = await Promise.all([
@@ -75,11 +81,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ post
 
     const hasMore = replies.length > limit;
     const items = hasMore ? replies.slice(0, limit) : replies;
-    return NextResponse.json({
+
+    const result = {
       replies: items.map(formatReply),
       nextCursor: hasMore ? items[items.length - 1].id : null,
       hasMore, total,
-    });
+    };
+
+    await setCache(cacheKey, result, 300);
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -116,6 +126,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
       },
       include: replyInclude,
     });
+
+    await invalidateThreadRepliesCache(postId);
+    await invalidatePostCache(postId);
+    await invalidateFeedCache();
+    await invalidateUserCache(authUser.username);
+    await invalidateSearchCache();
 
     return NextResponse.json({ reply: formatReply(reply) }, { status: 201 });
   } catch (e) {

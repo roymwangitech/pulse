@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { authenticate } from '@/lib/auth-server';
 import { formatPost, postInclude } from '@/lib/posts-db';
+import { invalidatePostCache, invalidateUserCache } from '@/lib/cache';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,6 +25,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const updated = await prisma.post.findUnique({ where: { id }, include: postInclude });
+    
+    await invalidatePostCache(id);
+    if (updated?.user.username) {
+      await invalidateUserCache(updated.user.username);
+    }
+
     return NextResponse.json({ action, post: formatPost(updated!) });
   } catch (e) {
     if (e instanceof Response) return e;
