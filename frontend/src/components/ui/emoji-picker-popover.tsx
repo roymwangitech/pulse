@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+import { EmojiStyle } from 'emoji-picker-react';
+
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 interface EmojiPickerPopoverProps {
@@ -71,6 +73,7 @@ export function EmojiPickerPopover({ open, onClose, onSelect }: EmojiPickerPopov
               theme={isLight ? ('light' as never) : ('dark' as never)}
               width="100%"
               height={350}
+              emojiStyle={EmojiStyle.NATIVE}
             />
           </div>
         </>
