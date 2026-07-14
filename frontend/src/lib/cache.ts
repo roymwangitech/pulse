@@ -23,3 +23,12 @@ export async function invalidateSearchCache() {
   await delCache('search:trending');
   await delCache('search:recent-threads');
 }
+
+export async function invalidateDmCache(userId: string) {
+  await delCache(`dm:conversations:${userId}`);
+}
+
+export async function invalidateDmCacheForUsers(userIds: string[]) {
+  await Promise.all(userIds.map((userId) => delCache(`dm:conversations:${userId}`)));
+}
+

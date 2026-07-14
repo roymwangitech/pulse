@@ -73,7 +73,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ post
       prisma.threadReply.findMany({
         where, take: limit + 1,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
         include: replyInclude,
       }),
       prisma.threadReply.count({ where }),

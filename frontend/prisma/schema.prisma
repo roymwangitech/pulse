@@ -72,6 +72,7 @@ model Post {
   replies   ThreadReply[]
 
   @@index([userId])
+  @@index([userId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
   @@index([searchText])
   @@index([pinned])
@@ -96,6 +97,7 @@ model ThreadReply {
 
   @@index([postId])
   @@index([parentReplyId])
+  @@index([postId, parentReplyId, createdAt(sort: Desc)])
   @@index([createdAt])
 }
 
@@ -184,5 +186,6 @@ model DirectMessage {
   replies      DirectMessage[] @relation("MsgReply")
 
   @@index([conversationId, createdAt(sort: Desc)])
+  @@index([conversationId, readAt])
   @@index([senderId])
 }

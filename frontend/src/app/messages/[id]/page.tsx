@@ -40,7 +40,6 @@ function groupMessages(messages: DirectMessage[]) {
 export default function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const accessToken = useAuthStore((s) => s.accessToken);
-  const me = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);

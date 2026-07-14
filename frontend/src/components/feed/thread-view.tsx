@@ -240,10 +240,10 @@ function ReplyItem({ reply, postId, depth = 0 }: { reply: ThreadReply; postId: s
       queryClient.setQueryData(
         ['thread-children', postId, reply.id],
         (old: { pages: ThreadRepliesResponse[]; pageParams: unknown[] } | undefined) => {
-          if (!old) return { pages: [{ replies: [res.reply], nextCursor: null, hasMore: false, total: 1 }], pageParams: [undefined] };
+          if (!old?.pages.length) return { pages: [{ replies: [res.reply], nextCursor: null, hasMore: false, total: 1 }], pageParams: [undefined] };
           const pages = [...old.pages];
-          const last = pages[pages.length - 1];
-          pages[pages.length - 1] = { ...last, replies: [...last.replies, res.reply], total: last.total + 1 };
+          const first = pages[0];
+          pages[0] = { ...first, replies: [res.reply, ...first.replies], total: first.total + 1 };
           return { ...old, pages };
         }
       );
@@ -618,7 +618,7 @@ export function ThreadView({ postId }: { postId: string }) {
           const pages = [...old.pages];
           const first = pages[0];
           if (first.replies.some((r) => r.id === res.reply.id)) return old;
-          pages[0] = { ...first, replies: [...first.replies, res.reply], total: first.total + 1 };
+          pages[0] = { ...first, replies: [res.reply, ...first.replies], total: first.total + 1 };
           return { ...old, pages };
         }
       );

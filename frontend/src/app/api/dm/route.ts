@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { authenticate } from '@/lib/auth-server';
+import { getCache, setCache } from '@/lib/redis';
+import { invalidateDmCacheForUsers } from '@/lib/cache';
 
 const userSelect = { id: true, username: true, displayName: true, avatarUrl: true };
 
@@ -8,6 +10,10 @@ const userSelect = { id: true, username: true, displayName: true, avatarUrl: tru
 export async function GET(req: NextRequest) {
   try {
     const me = await authenticate(req);
+
+    const cacheKey = `dm:conversations:${me.userId}`;
+    const cached = await getCache<unknown>(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
     const conversations = await prisma.conversation.findMany({
       where: { OR: [{ userAId: me.userId }, { userBId: me.userId }] },
@@ -54,7 +60,10 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ conversations: result });
+    const responseData = { conversations: result };
+    await setCache(cacheKey, responseData, 300);
+
+    return NextResponse.json(responseData);
   } catch (e) {
     if (e instanceof Response) return e;
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -83,9 +92,14 @@ export async function POST(req: NextRequest) {
     });
 
     const otherUser = conversation.userAId === me.userId ? conversation.userB : conversation.userA;
+    
+    // Invalidate conversation list cache for both users
+    await invalidateDmCacheForUsers([me.userId, other.id]);
+
     return NextResponse.json({ conversation: { id: conversation.id, other: otherUser } });
   } catch (e) {
     if (e instanceof Response) return e;
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { authenticate } from '@/lib/auth-server';
+import { invalidateDmCache, invalidateDmCacheForUsers } from '@/lib/cache';
 
 const sendSchema = z.object({
   content: z.string().min(1).max(3000),
@@ -51,10 +52,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       select: msgSelect,
     });
 
-    await prisma.directMessage.updateMany({
+    const updatedResult = await prisma.directMessage.updateMany({
       where: { conversationId: id, senderId: { not: me.userId }, readAt: null },
       data: { readAt: new Date() },
     });
+
+    if (updatedResult.count > 0) {
+      await invalidateDmCache(me.userId);
+    }
 
     const hasMore = messages.length > limit;
     const items = hasMore ? messages.slice(0, limit) : messages;
@@ -102,9 +107,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       prisma.conversation.update({ where: { id }, data: { updatedAt: new Date() } }),
     ]);
 
+    // Invalidate conversation list cache for both users
+    await invalidateDmCacheForUsers([conv.userAId, conv.userBId]);
+
     return NextResponse.json({ message: { ...message, fromMe: true } }, { status: 201 });
   } catch (e) {
     if (e instanceof Response) return e;
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
