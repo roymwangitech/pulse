@@ -63,7 +63,11 @@ export async function GET(req: NextRequest) {
     };
 
     await setCache(cacheKey, result, 300);
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'public, max-age=10, s-maxage=30, stale-while-revalidate=30',
+      },
+    });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
