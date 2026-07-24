@@ -16,6 +16,12 @@ export async function POST(req: NextRequest) {
     const parsed = schema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
 
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'registration_enabled' } });
+    const registrationEnabled = setting ? setting.value === 'true' : true;
+    if (!registrationEnabled) {
+      return NextResponse.json({ error: 'New user registration is currently disabled' }, { status: 403 });
+    }
+
     const { username, password, displayName } = parsed.data;
     const existing = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
     if (existing) return NextResponse.json({ error: 'Username already taken' }, { status: 409 });

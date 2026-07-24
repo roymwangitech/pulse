@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -105,6 +105,25 @@ export default function AdminPage() {
     queryKey: ['admin-analytics'],
     queryFn: () => api.get<{ analytics: Record<string, number> }>('/admin/analytics', accessToken!),
     enabled: !!accessToken && user?.role === 'ADMIN',
+  });
+
+  const { data: configData, isLoading: isLoadingConfig } = useQuery({
+    queryKey: ['admin-config'],
+    queryFn: () => api.get<{ registrationEnabled: boolean }>('/admin/config', accessToken!),
+    enabled: !!accessToken && user?.role === 'ADMIN',
+  });
+
+  const toggleRegistration = useMutation({
+    mutationFn: () =>
+      api.patch<{ registrationEnabled: boolean }>(
+        '/admin/config',
+        { registrationEnabled: !configData?.registrationEnabled },
+        accessToken!
+      ),
+    onSuccess: (res) => {
+      queryClient.setQueryData(['admin-config'], res);
+      queryClient.invalidateQueries({ queryKey: ['public-config'] });
+    },
   });
 
   const { data: usersData, refetch: refetchUsers } = useQuery({
@@ -231,6 +250,34 @@ export default function AdminPage() {
             ))}
           </div>
         )}
+
+        {/* System Settings */}
+        <Card className="p-4 sm:p-6">
+          <h2 className="mb-3 text-lg font-bold">System Settings</h2>
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <div>
+              <p className="font-semibold text-sm sm:text-base">User Registrations</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Enable or disable new users from creating accounts.
+              </p>
+            </div>
+            <Button
+              variant={configData?.registrationEnabled ? 'default' : 'destructive'}
+              size="sm"
+              onClick={() => toggleRegistration.mutate()}
+              disabled={isLoadingConfig || toggleRegistration.isPending}
+              className="rounded-full px-4"
+            >
+              {isLoadingConfig
+                ? 'Loading...'
+                : toggleRegistration.isPending
+                ? 'Saving...'
+                : configData?.registrationEnabled
+                ? 'Disable Sign-ups'
+                : 'Enable Sign-ups'}
+            </Button>
+          </div>
+        </Card>
 
         {/* Users section */}
         <section>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -16,6 +17,37 @@ export function RegisterForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const { data: config, isLoading } = useQuery({
+    queryKey: ['public-config'],
+    queryFn: () => api.get<{ registrationEnabled: boolean }>('/config'),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (config && !config.registrationEnabled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4 pb-8">
+        <div className="w-full max-w-md space-y-6 text-center">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold">Sign-ups Disabled</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              New user registrations are currently disabled by the administrator.
+            </p>
+          </div>
+          <Button onClick={() => router.push('/login')} className="w-full rounded-full">
+            Back to Sign in
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

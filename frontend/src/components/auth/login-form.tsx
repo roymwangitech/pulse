@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -15,6 +16,11 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const { data: config } = useQuery({
+    queryKey: ['public-config'],
+    queryFn: () => api.get<{ registrationEnabled: boolean }>('/config'),
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,10 +68,12 @@ export function LoginForm() {
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
-        <p className="text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-twitter-blue hover:underline">Sign up</Link>
-        </p>
+        {(!config || config.registrationEnabled) && (
+          <p className="text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{' '}
+            <Link href="/register" className="text-twitter-blue hover:underline">Sign up</Link>
+          </p>
+        )}
       </div>
     </div>
   );
